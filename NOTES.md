@@ -80,3 +80,13 @@ Decisiones y problemas, por iteración.
   barras laterales en las columnas de margen: no gasta filas y no pinta fondo.
 - `GridLayout` es puro (ancho → posiciones) y guarda el área dibujada para el mouse.
 - El scroll es por líneas con recorte por línea, así una fila puede verse a medias.
+
+## Iteración 10 — navegación
+- Los eventos se traducen en `ui/input.rs` con funciones puras sobre `State` (testeables sin
+  terminal). Arriba/abajo usan la geometría real de la grilla y cruzan de apps a servicios.
+- Mouse: clic selecciona, clic sobre la ya seleccionada entra; la rueda mueve una fila.
+- Bucle de un solo hilo: `event::poll` con timeout hasta la próxima muestra (sin despertares
+  de sobra). Solo se redibuja si cambió algo.
+- `script` no está instalado: el smoke test interactivo se hace con un driver de pty en
+  Python (fuera del repo) que manda teclas y verifica código de salida y secuencias.
+- La vista de detalle es todavía un título; se completa en la Fase 4.

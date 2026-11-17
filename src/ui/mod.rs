@@ -1,7 +1,10 @@
 //! Interfaz de terminal: grilla, vista de detalle y diálogos.
 
+pub mod detail;
 pub mod format;
 pub mod grid;
+pub mod input;
+pub mod run;
 pub mod state;
 pub mod theme;
 
@@ -10,13 +13,17 @@ use ratatui::{Frame, Terminal};
 
 use crate::icons::IconStore;
 
-pub use state::State;
+pub use run::{run, RunOptions};
+pub use state::{State, View};
 pub use theme::Theme;
 
 /// Dibuja un cuadro completo de la interfaz.
 pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
     let area = frame.area();
-    grid::draw(frame.buffer_mut(), area, state, store);
+    match state.view {
+        View::Grid => grid::draw(frame.buffer_mut(), area, state, store),
+        View::Detail => detail::draw(frame.buffer_mut(), area, state, store),
+    }
 }
 
 /// Renderiza un cuadro a texto plano, sin terminal real. Lo usan

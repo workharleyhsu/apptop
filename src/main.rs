@@ -10,7 +10,7 @@ use apptop::apps::{group_apps_with, AppKind, DesktopIndex};
 use apptop::collect::Collector;
 use apptop::icons::{BrailleIcon, GenericKind, IconLocator, IconStore, DETAIL_ICON, GRID_ICON};
 use apptop::ui::format::human_bytes;
-use apptop::ui::{render_to_text, State, Theme};
+use apptop::ui::{render_to_text, RunOptions, State, Theme};
 
 /// Monitor de recursos para terminal centrado en aplicaciones.
 #[derive(Parser, Debug)]
@@ -39,6 +39,10 @@ struct Cli {
     #[arg(long)]
     snapshot: bool,
 
+    /// Con `--snapshot`: muestra el detalle de esta app en vez de la grilla.
+    #[arg(long, value_name = "NOMBRE")]
+    app: Option<String>,
+
     /// Con `--snapshot`: tamaño del cuadro, por ejemplo `120x40`.
     #[arg(long, value_name = "ANCHOxALTO", default_value = "100x30")]
     size: String,
@@ -60,14 +64,27 @@ fn main() {
     }
     if cli.snapshot {
         let (width, height) = parse_size(&cli.size).unwrap_or((100, 30));
-        print!("{}", snapshot(width, height));
+        match snapshot(width, height, cli.app.as_deref()) {
+            Ok(text) => print!("{text}"),
+            Err(message) => {
+                eprintln!("apptop: {message}");
+                std::process::exit(1);
+            }
+        }
         return;
     }
     if cli.list_procs {
         list_procs();
         return;
     }
-    println!("apptop {}", env!("CARGO_PKG_VERSION"));
+    if !std::io::stdout().is_terminal() {
+        eprintln!("apptop: la salida no es una terminal; usá --list, --snapshot o --dump-icon");
+        std::process::exit(2);
+    }
+    if let Err(err) = apptop::ui::run(RunOptions::default()) {
+        eprintln!("apptop: {err}");
+        std::process::exit(1);
+    }
 }
 
 fn list_procs() {
@@ -225,8 +242,30 @@ fn sample_apps() -> Vec<apptop::apps::App> {
     group_apps_with(collector.sample(), Some(&index))
 }
 
-fn snapshot(width: u16, height: u16) -> String {
+fn snapshot(width: u16, height: u16, app: Option<&str>) -> Result<String, String> {
     let mut state = State::new(Theme::detect());
     state.set_apps(sample_apps());
-    render_to_text(width, height, &mut state, &mut IconStore::new())
+    if let Some(wanted) = app {
+        let lower = wanted.to_lowercase();
+        let found = state
+            .apps
+            .iter()
+            .find(|a| a.name.to_lowercase() == lower || a.app_id.as_deref() == Some(wanted))
+            .or_else(|| {
+                state
+                    .apps
+                    .iter()
+                    .find(|a| a.name.to_lowercase().contains(&lower))
+            })
+            .map(|a| a.id.clone())
+            .ok_or_else(|| format!("no hay ninguna app en ejecución llamada '{wanted}'"))?;
+        state.selected = Some(found);
+        state.enter_detail();
+    }
+    Ok(render_to_text(
+        width,
+        height,
+        &mut state,
+        &mut IconStore::new(),
+    ))
 }
