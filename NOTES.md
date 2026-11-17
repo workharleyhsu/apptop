@@ -26,3 +26,15 @@ Decisiones y problemas, por iteración.
   con el nombre del ejecutable de la raíz. Hilos del kernel fuera.
 - Pendiente para la tarea 4: firefox lanzado desde una terminal vive en el scope de alacritty;
   hay que separar subárboles que correspondan a otro `.desktop`.
+
+## Iteración 4 — .desktop
+- `freedesktop-desktop-entry` sin la feature `gettext` (evita enlazar libintl).
+- Búsqueda: id exacto → último segmento del id → `StartupWMClass` → ejecutable de `Exec=`.
+- Separación de subárboles: dentro de un scope de app (o sin cgroup útil), un proceso cuyo
+  ejecutable apunta a OTRO `.desktop` arrastra a sus hijos a una app propia. Caso real:
+  Firefox lanzado desde Alacritty. La clave de app es el id del `.desktop`, así se fusiona
+  con instancias que sí tienen scope propio.
+- El índice por ejecutable ignora entradas `Terminal=true`/`NoDisplay=true` y lanzadores
+  genéricos (sh, python, env...): `fish.desktop` no debe partir una terminal.
+- Los servicios nunca se parten; solo toman icono (y nombre si son `app-*.service`).
+- La ruta real del icono se resuelve en la tarea siguiente (Fase 2); acá queda `Icon=`.

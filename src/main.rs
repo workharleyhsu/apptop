@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use clap::Parser;
 
-use apptop::apps::{group_apps, AppKind};
+use apptop::apps::{group_apps_with, AppKind, DesktopIndex};
 use apptop::collect::Collector;
 use apptop::ui::format::human_bytes;
 
@@ -65,7 +65,8 @@ fn list_apps() {
     let mut collector = Collector::new();
     collector.sample();
     sleep(Duration::from_millis(250));
-    let apps = group_apps(collector.sample());
+    let index = DesktopIndex::load();
+    let apps = group_apps_with(collector.sample(), Some(&index));
     for (kind, title) in [
         (AppKind::App, "APLICACIONES"),
         (AppKind::Service, "SERVICIOS"),
@@ -73,18 +74,24 @@ fn list_apps() {
         let section: Vec<_> = apps.iter().filter(|a| a.kind == kind).collect();
         println!("== {title} ({}) ==", section.len());
         println!(
-            "{:<32} {:<13} {:>5} {:>6} {:>9}  PIDS",
-            "NOMBRE", "TIPO", "PROCS", "CPU%", "RAM"
+            "{:<28} {:<13} {:>5} {:>6} {:>9}  {:<28} PIDS",
+            "NOMBRE", "TIPO", "PROCS", "CPU%", "RAM", "ICONO"
         );
         for app in section {
             let pids: Vec<String> = app.procs.iter().map(|p| p.pid.to_string()).collect();
+            let icon = app
+                .desktop
+                .as_ref()
+                .and_then(|d| d.icon.as_deref())
+                .unwrap_or("-");
             println!(
-                "{:<32} {:<13} {:>5} {:>6.1} {:>9}  {}",
-                truncate(&app.name, 32),
+                "{:<28} {:<13} {:>5} {:>6.1} {:>9}  {:<28} {}",
+                truncate(&app.name, 28),
                 app.origin.label(),
                 app.procs.len(),
                 app.cpu_pct,
                 human_bytes(app.rss),
+                truncate(icon, 28),
                 pids.join(",")
             );
         }

@@ -1,8 +1,10 @@
 //! Agrupa procesos en aplicaciones y servicios.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 use super::cgroup::{classify, Unit};
+use super::desktop::{DesktopIndex, DesktopInfo};
 use crate::collect::ProcInfo;
 
 /// Sección de la grilla en la que aparece un grupo.
@@ -47,6 +49,8 @@ pub struct App {
     pub origin: Origin,
     /// Identificador para buscar el `.desktop`, si el cgroup lo aporta.
     pub app_id: Option<String>,
+    /// `.desktop` asociado: de ahí salen el nombre visible y el icono.
+    pub desktop: Option<Arc<DesktopInfo>>,
     /// Procesos ordenados por pid.
     pub procs: Vec<ProcInfo>,
     pub cpu_pct: f32,
@@ -89,32 +93,69 @@ struct Key {
     kind: AppKind,
     origin: Origin,
     app_id: Option<String>,
+    desktop: Option<Arc<DesktopInfo>>,
 }
 
-fn key_for_unit(unit: Unit) -> Option<Key> {
-    match unit {
-        Unit::AppScope { app_id, flatpak } => Some(Key {
-            id: format!("app:{app_id}"),
-            name: pretty_app_id(&app_id),
+impl Key {
+    /// Clave de una app identificada por su `.desktop`. Es la misma venga del
+    /// scope propio o de un subárbol separado de otro grupo.
+    fn for_desktop(desktop: Arc<DesktopInfo>, origin: Origin, app_id: Option<String>) -> Key {
+        Key {
+            id: format!("app:{}", desktop.id.to_lowercase()),
+            name: desktop.name.clone(),
             kind: AppKind::App,
-            origin: if flatpak {
+            origin,
+            app_id,
+            desktop: Some(desktop),
+        }
+    }
+}
+
+fn key_for_unit(unit: Unit, index: Option<&DesktopIndex>) -> Option<Key> {
+    match unit {
+        Unit::AppScope { app_id, flatpak } => {
+            let origin = if flatpak {
                 Origin::Flatpak
             } else {
                 Origin::Scope
-            },
-            app_id: Some(app_id),
-        }),
-        Unit::Service { name, user, app_id } => Some(Key {
-            id: format!("{}:{name}", if user { "usvc" } else { "svc" }),
-            name: app_id.as_deref().map(pretty_app_id).unwrap_or(name),
-            kind: AppKind::Service,
-            origin: if user {
-                Origin::UserService
-            } else {
-                Origin::SystemService
-            },
-            app_id,
-        }),
+            };
+            match index.and_then(|i| i.by_app_id(&app_id)) {
+                Some(desktop) => Some(Key::for_desktop(desktop, origin, Some(app_id))),
+                None => Some(Key {
+                    id: format!("app:{}", app_id.to_lowercase()),
+                    name: pretty_app_id(&app_id),
+                    kind: AppKind::App,
+                    origin,
+                    app_id: Some(app_id),
+                    desktop: None,
+                }),
+            }
+        }
+        Unit::Service { name, user, app_id } => {
+            let desktop = index.and_then(|i| match &app_id {
+                Some(id) => i.by_app_id(id),
+                None => i.by_exact_id(&name),
+            });
+            // Un servicio corriente conserva el nombre de su unidad; el
+            // `.desktop` solo le presta el icono.
+            let shown = match (&app_id, &desktop) {
+                (Some(_), Some(d)) => d.name.clone(),
+                (Some(id), None) => pretty_app_id(id),
+                (None, _) => name.clone(),
+            };
+            Some(Key {
+                id: format!("{}:{name}", if user { "usvc" } else { "svc" }),
+                name: shown,
+                kind: AppKind::Service,
+                origin: if user {
+                    Origin::UserService
+                } else {
+                    Origin::SystemService
+                },
+                app_id,
+                desktop,
+            })
+        }
         Unit::Container { runtime, id } => {
             let short: String = id.chars().take(12).collect();
             Some(Key {
@@ -123,53 +164,125 @@ fn key_for_unit(unit: Unit) -> Option<Key> {
                 kind: AppKind::Service,
                 origin: Origin::Container,
                 app_id: None,
+                desktop: None,
             })
         }
         Unit::None => None,
     }
 }
 
+/// Agrupa una muestra de procesos sin consultar archivos `.desktop`.
+pub fn group_apps(procs: Vec<ProcInfo>) -> Vec<App> {
+    group_apps_with(procs, None)
+}
+
 /// Agrupa una muestra de procesos. Los hilos del kernel se descartan.
 ///
-/// Los procesos sin cgroup útil se agrupan por árbol de padres: cada árbol
-/// toma el nombre del ejecutable de su raíz, y los árboles con el mismo
-/// ejecutable se fusionan.
-pub fn group_apps(procs: Vec<ProcInfo>) -> Vec<App> {
-    let mut groups: BTreeMap<String, App> = BTreeMap::new();
-    let mut orphans: Vec<ProcInfo> = Vec::new();
+/// 1. El cgroup decide el grupo base (scope de app, servicio, contenedor).
+/// 2. Dentro de un scope de app o entre los procesos sin cgroup útil, un
+///    subárbol cuyo ejecutable corresponde a otro `.desktop` se separa como
+///    app propia: así Firefox lanzado desde una terminal no cuenta como parte
+///    de la terminal.
+/// 3. Lo que queda sin cgroup útil se agrupa por árbol de padres: cada árbol
+///    toma el nombre del ejecutable de su raíz.
+pub fn group_apps_with(procs: Vec<ProcInfo>, index: Option<&DesktopIndex>) -> Vec<App> {
+    struct Node {
+        proc: ProcInfo,
+        /// Grupo base por cgroup; `None` = sin cgroup útil.
+        base: Option<Key>,
+        /// App a la que apunta el ejecutable del propio proceso.
+        own: Option<Arc<DesktopInfo>>,
+        splittable: bool,
+    }
 
+    let mut unit_keys: HashMap<String, Option<Key>> = HashMap::new();
+    let mut exec_cache: HashMap<String, Option<Arc<DesktopInfo>>> = HashMap::new();
+    let mut nodes: Vec<Node> = Vec::with_capacity(procs.len());
     for p in procs {
         if p.kthread {
             continue;
         }
-        let unit = p.cgroup.as_deref().map(classify).unwrap_or(Unit::None);
-        match key_for_unit(unit) {
-            Some(key) => push(&mut groups, key, p),
-            None => orphans.push(p),
-        }
+        let cgroup = p.cgroup.clone().unwrap_or_default();
+        let base = unit_keys
+            .entry(cgroup)
+            .or_insert_with_key(|path| key_for_unit(classify(path), index))
+            .as_ref()
+            .map(Key::clone_key);
+        let splittable = base.as_ref().is_none_or(|k| k.kind == AppKind::App);
+        let own = match index {
+            Some(index) if splittable => exec_cache
+                .entry(exe_name(&p))
+                .or_insert_with_key(|name| index.by_exec(name))
+                .clone(),
+            _ => None,
+        };
+        nodes.push(Node {
+            proc: p,
+            base,
+            own,
+            splittable,
+        });
     }
 
-    // Fallback: sube por los padres mientras sigan siendo huérfanos.
-    let parent_of: HashMap<i32, i32> = orphans.iter().map(|p| (p.pid, p.ppid)).collect();
-    let names: HashMap<i32, String> = orphans.iter().map(|p| (p.pid, exe_name(p))).collect();
-    for p in orphans {
-        let mut root = p.pid;
+    let by_pid: HashMap<i32, usize> = nodes
+        .iter()
+        .enumerate()
+        .map(|(i, n)| (n.proc.pid, i))
+        .collect();
+    let same_base = |a: &Node, b: &Node| match (&a.base, &b.base) {
+        (Some(x), Some(y)) => x.id == y.id,
+        (None, None) => true,
+        _ => false,
+    };
+
+    // Para cada proceso: ¿pertenece a una app distinta de su grupo base?
+    let mut split: Vec<Option<Arc<DesktopInfo>>> = vec![None; nodes.len()];
+    // Raíz del árbol dentro de los procesos sin cgroup útil.
+    let mut roots: Vec<usize> = (0..nodes.len()).collect();
+    for (i, node) in nodes.iter().enumerate() {
+        if !node.splittable {
+            continue;
+        }
+        let base_desktop = node.base.as_ref().and_then(|k| k.desktop.as_ref());
+        let mut cur = i;
         // El límite evita ciclos si /proc cambió a mitad de la lectura.
         for _ in 0..64 {
-            match parent_of.get(&root) {
-                Some(parent) if parent_of.contains_key(parent) && *parent != root => root = *parent,
+            if let Some(own) = &nodes[cur].own {
+                if base_desktop.is_none_or(|d| d.id != own.id) {
+                    split[i] = Some(own.clone());
+                }
+                break;
+            }
+            match by_pid.get(&nodes[cur].proc.ppid) {
+                Some(&parent) if parent != cur && same_base(&nodes[parent], node) => cur = parent,
                 _ => break,
             }
         }
-        let name = names.get(&root).cloned().unwrap_or_else(|| p.name.clone());
-        let key = Key {
-            id: format!("exe:{name}"),
-            name,
-            kind: AppKind::Service,
-            origin: Origin::Fallback,
-            app_id: None,
+        roots[i] = cur;
+    }
+
+    let root_names: Vec<String> = nodes.iter().map(|n| exe_name(&n.proc)).collect();
+    let mut groups: BTreeMap<String, App> = BTreeMap::new();
+    for (i, node) in nodes.into_iter().enumerate() {
+        let key = match (split[i].take(), node.base) {
+            (Some(desktop), base) => {
+                let origin = base.map(|k| k.origin).unwrap_or(Origin::Fallback);
+                Key::for_desktop(desktop, origin, None)
+            }
+            (None, Some(base)) => base,
+            (None, None) => {
+                let name = root_names[roots[i]].clone();
+                Key {
+                    id: format!("exe:{name}"),
+                    name,
+                    kind: AppKind::Service,
+                    origin: Origin::Fallback,
+                    app_id: None,
+                    desktop: None,
+                }
+            }
         };
-        push(&mut groups, key, p);
+        push(&mut groups, key, node.proc);
     }
 
     let mut apps: Vec<App> = groups.into_values().collect();
@@ -184,6 +297,19 @@ pub fn group_apps(procs: Vec<ProcInfo>) -> Vec<App> {
     apps
 }
 
+impl Key {
+    fn clone_key(&self) -> Key {
+        Key {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            kind: self.kind,
+            origin: self.origin,
+            app_id: self.app_id.clone(),
+            desktop: self.desktop.clone(),
+        }
+    }
+}
+
 fn push(groups: &mut BTreeMap<String, App>, key: Key, p: ProcInfo) {
     groups
         .entry(key.id.clone())
@@ -193,6 +319,7 @@ fn push(groups: &mut BTreeMap<String, App>, key: Key, p: ProcInfo) {
             kind: key.kind,
             origin: key.origin,
             app_id: key.app_id,
+            desktop: key.desktop,
             procs: Vec::new(),
             cpu_pct: 0.0,
             rss: 0,
@@ -327,6 +454,82 @@ mod tests {
             proc(6, 5, "/bin/b", "/"),
         ]);
         assert_eq!(apps.iter().map(|a| a.procs.len()).sum::<usize>(), 2);
+    }
+
+    #[test]
+    fn desktop_gives_name_and_splits_foreign_apps_out_of_a_terminal() {
+        use crate::apps::desktop::tests::{index_with, SAMPLE};
+        let (_tmp, index) = index_with(SAMPLE);
+        let term = format!("{APP}/app-niri-alacritty-10.scope");
+        let own = format!("{APP}/app-niri-firefox-77.scope");
+        let procs = vec![
+            proc(10, 1, "/usr/bin/alacritty", &term),
+            proc(11, 10, "/usr/bin/fish", &term),
+            proc(12, 11, "/usr/bin/cargo", &term),
+            // Firefox lanzado desde la terminal y luego reparentado.
+            proc(20, 1, "/usr/lib64/firefox/firefox", &term),
+            proc(21, 20, "/usr/lib64/firefox/firefox", &term),
+            proc(22, 21, "/usr/lib64/firefox/crashhelper", &term),
+            // Otra instancia con scope propio: debe fusionarse.
+            proc(30, 1, "/usr/lib64/firefox/firefox", &own),
+            // Sin cgroup útil pero con `.desktop` por ejecutable.
+            proc(
+                40,
+                1,
+                "/usr/bin/sudo",
+                "/user.slice/user-1000.slice/session-c7.scope",
+            ),
+            proc(
+                41,
+                40,
+                "/usr/share/code/code",
+                "/user.slice/user-1000.slice/session-c7.scope",
+            ),
+            // Los servicios no se parten aunque el ejecutable coincida.
+            proc(
+                50,
+                1,
+                "/usr/lib64/firefox/firefox",
+                "/system.slice/kiosk.service",
+            ),
+        ];
+        let apps = group_apps_with(procs, Some(&index));
+        let find = |name: &str| {
+            apps.iter()
+                .find(|a| a.name == name)
+                .unwrap_or_else(|| panic!("{name}"))
+        };
+        assert_eq!(find("Alacritty").pids(), vec![10, 11, 12]);
+        assert_eq!(find("Alacritty").desktop.as_ref().unwrap().id, "Alacritty");
+        let fx = find("Zorro");
+        assert_eq!(fx.pids(), vec![20, 21, 22, 30]);
+        assert_eq!(fx.kind, AppKind::App);
+        assert_eq!(
+            fx.desktop.as_ref().unwrap().icon.as_deref(),
+            Some("firefox")
+        );
+        assert_eq!(find("Code").pids(), vec![41]);
+        assert_eq!(find("Code").kind, AppKind::App);
+        assert_eq!(find("sudo").pids(), vec![40]);
+        assert_eq!(find("kiosk").pids(), vec![50]);
+        assert_eq!(apps.len(), 5);
+    }
+
+    #[test]
+    fn app_services_take_the_desktop_name() {
+        use crate::apps::desktop::tests::{index_with, SAMPLE};
+        let (_tmp, index) = index_with(SAMPLE);
+        let apps = group_apps_with(
+            vec![proc(
+                1,
+                0,
+                "/usr/bin/kdeconnectd",
+                &format!("{APP}/app-org.kde.kdeconnect.daemon@autostart.service"),
+            )],
+            Some(&index),
+        );
+        assert_eq!(apps[0].name, "KDE Connect");
+        assert_eq!(apps[0].kind, AppKind::Service);
     }
 
     #[test]
