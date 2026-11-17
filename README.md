@@ -300,3 +300,12 @@ acciones solo envían señales a procesos `sleep` que ellos mismos lanzan.
 
 `PROGRESS.md` lleva el estado de las tareas y `NOTES.md` las decisiones de
 diseño y las mediciones de rendimiento.
+
+## Licencia
+
+Doble licencia, a elección: [MIT](LICENSE-MIT) o
+[Apache-2.0](LICENSE-APACHE).
+
+Salvo que se indique lo contrario, toda contribución enviada para incluirse
+en este proyecto queda bajo esa misma doble licencia, sin términos
+adicionales.

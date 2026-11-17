@@ -2,6 +2,11 @@
 name = "apptop"
 version = "0.1.0"
 edition = "2021"
+description = "App-centric resource monitor for the Linux terminal, with braille icons"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["tui", "monitor", "process", "terminal", "linux"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
