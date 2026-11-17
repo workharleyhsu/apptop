@@ -7,7 +7,9 @@ use clap::Parser;
 
 use apptop::apps::{group_apps_with, AppKind, DesktopIndex};
 use apptop::collect::Collector;
-use apptop::icons::{convert_file, IconLocator, DETAIL_ICON, GRID_ICON};
+use apptop::icons::{
+    convert_file, generic_icon, BrailleIcon, GenericKind, IconLocator, DETAIL_ICON, GRID_ICON,
+};
 use apptop::ui::format::human_bytes;
 
 /// Monitor de recursos para terminal centrado en aplicaciones.
@@ -19,7 +21,8 @@ struct Cli {
     list: bool,
 
     /// Imprime el icono de una app convertido a braille. Acepta el nombre de
-    /// una app, el id de un `.desktop`, un nombre de icono o una ruta.
+    /// una app, el id de un `.desktop`, un nombre de icono, una ruta, o
+    /// `generic:service` / `generic:app` para los iconos genéricos.
     #[arg(long, value_name = "APP")]
     dump_icon: Option<String>,
 
@@ -155,22 +158,28 @@ fn resolve_icon(target: &str, locator: &IconLocator) -> Option<PathBuf> {
 }
 
 fn dump_icon(target: &str, size: (u16, u16), color: &str) -> i32 {
-    let locator = IconLocator::detect();
-    let Some(path) = resolve_icon(target, &locator) else {
-        eprintln!("apptop: no se encontró un icono para '{target}'");
-        return 1;
-    };
-    let Some(icon) = convert_file(&path, size.0, size.1) else {
-        eprintln!("apptop: no se pudo convertir {}", path.display());
-        return 1;
+    let icon: BrailleIcon = if let Some(kind) = GenericKind::from_name(target) {
+        eprintln!("{}", kind.name());
+        generic_icon(kind, size.0, size.1)
+    } else {
+        let locator = IconLocator::detect();
+        let Some(path) = resolve_icon(target, &locator) else {
+            eprintln!("apptop: no se encontró un icono para '{target}'");
+            return 1;
+        };
+        let Some(icon) = convert_file(&path, size.0, size.1) else {
+            eprintln!("apptop: no se pudo convertir {}", path.display());
+            return 1;
+        };
+        let (r, g, b) = icon.color;
+        eprintln!("{}  color #{r:02x}{g:02x}{b:02x}", path.display());
+        icon
     };
     let colored = match color {
         "always" => true,
         "never" => false,
         _ => std::io::stdout().is_terminal(),
     };
-    let (r, g, b) = icon.color;
-    eprintln!("{}  color #{r:02x}{g:02x}{b:02x}", path.display());
     if colored {
         let truecolor = std::env::var("COLORTERM").is_ok_and(|v| v == "truecolor" || v == "24bit");
         print!("{}", icon.to_ansi(truecolor));

@@ -9,7 +9,7 @@
 ## Fase 2 — Iconos
 - [x] Localizar icono según tema activo, con fallback a hicolor y pixmaps.
 - [x] Pipeline SVG/PNG → bordes → braille + color dominante. `--dump-icon` funcionando.
-- [ ] Iconos genéricos (servicio, app sin icono) en el mismo estilo.
+- [x] Iconos genéricos (servicio, app sin icono) en el mismo estilo.
 - [ ] Caché en disco.
 
 ## Fase 3 — Pantalla principal

@@ -59,3 +59,8 @@ Decisiones y problemas, por iteración.
   muy oscuro se aclara hasta luminancia 110 para que se lea en terminal oscura (desvío
   deliberado del color exacto). Monocromo → gris neutro.
 - `--dump-icon <app> [--large] [--color auto|always|never]`: la ruta y el color van a stderr.
+
+## Iteración 7 — iconos genéricos
+- Engranaje y ventana se describen como SVG en código y pasan por el mismo pipeline que los
+  iconos reales: mismo estilo garantizado, sin un segundo camino de dibujo. Color fijo por tipo.
+- `--dump-icon generic:service|generic:app` para verlos.

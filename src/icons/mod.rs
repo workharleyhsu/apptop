@@ -3,12 +3,14 @@
 pub mod braille;
 pub mod color;
 pub mod edges;
+pub mod generic;
 pub mod locate;
 pub mod raster;
 
 use std::path::Path;
 
 pub use braille::BrailleIcon;
+pub use generic::{generic_icon, GenericKind};
 pub use locate::IconLocator;
 
 /// Tamaño del icono en la grilla, en celdas.
