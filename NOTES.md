@@ -375,3 +375,27 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
   el más profundo y quedaba como "proceso". Dentro de una unidad `app-*` ya no se baja más.
 - Verificado en CachyOS con un binario temporal (copiado a /tmp y borrado): 12 apps, sin
   `firefox (1)`, Konsole con origen "app".
+
+## Después de v0.1.2 — Firefox aparecía como "Rofi" en Linux Mint
+
+Visto en Linux Mint 22.1 con sesión GNOME (`ssh tito`). Dos causas juntas:
+
+- **El scope lleva el nombre del lanzador.** Firefox abierto desde rofi hereda
+  `app-gnome-rofi-<pid>.scope`. Rofi ya terminó, así que el grupo "Rofi" era en
+  realidad Firefox entero.
+- **El proceso se llama `firefox-bin`.** En Debian, Ubuntu y Mint `firefox` es
+  un script que lanza `/usr/lib/firefox/firefox-bin`, y ese nombre no coincidía
+  con `Exec=firefox`. Por eso la separación de subárboles (la misma que saca un
+  navegador de una terminal) no se activaba.
+
+Arreglo:
+
+- `DesktopIndex::match_exec` reintenta sin el sufijo `-bin`. La coincidencia
+  exacta sigue ganando.
+- Un proceso suelto del mismo scope se va con la app separada si su ejecutable
+  está en la misma carpeta que el de ella (`crashhelper` cuelga de systemd, no
+  de Firefox). Las carpetas compartidas (`*bin`, `libexec`) no cuentan, para no
+  arrastrar programas ajenos.
+
+Verificado en esa máquina con un binario temporal en `/tmp`, borrado después:
+"Firefox Web Browser" con sus 13 procesos y ningún grupo "Rofi".

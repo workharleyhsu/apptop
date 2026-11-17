@@ -1,6 +1,7 @@
 //! Agrupa procesos en aplicaciones y servicios.
 
 use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::cgroup::{classify, Unit};
@@ -87,6 +88,19 @@ pub fn exe_name(p: &ProcInfo) -> String {
             n.strip_suffix(" (deleted)").unwrap_or(&n).to_string()
         })
         .unwrap_or_else(|| p.name.clone())
+}
+
+/// Carpeta propia de la app a la que pertenece el ejecutable, si la tiene.
+///
+/// Las carpetas compartidas (`/usr/bin`, `/usr/sbin`…) no dicen nada: ahí
+/// conviven programas de apps distintas.
+fn app_dir(p: &ProcInfo) -> Option<PathBuf> {
+    let dir = p.exe.as_ref()?.parent()?;
+    let name = dir.file_name()?.to_string_lossy();
+    if name.ends_with("bin") || name == "libexec" {
+        return None;
+    }
+    Some(dir.to_path_buf())
 }
 
 struct Key {
@@ -270,6 +284,30 @@ pub fn group_apps_with(procs: Vec<ProcInfo>, index: Option<&DesktopIndex>) -> Ve
             }
         }
         roots[i] = cur;
+    }
+
+    // Auxiliares que quedaron sueltos dentro del mismo scope: van con la app
+    // separada si su ejecutable vive en la misma carpeta que el de ella.
+    // Caso real (Linux Mint): Firefox lanzado desde rofi hereda el scope
+    // `app-gnome-rofi-<pid>.scope`, y su `crashhelper` cuelga de systemd.
+    let mut split_dirs: HashMap<(String, PathBuf), Arc<DesktopInfo>> = HashMap::new();
+    for (i, node) in nodes.iter().enumerate() {
+        if let (Some(desktop), Some(base), Some(dir)) = (&split[i], &node.base, app_dir(&node.proc))
+        {
+            split_dirs
+                .entry((base.id.clone(), dir))
+                .or_insert_with(|| desktop.clone());
+        }
+    }
+    if !split_dirs.is_empty() {
+        for (i, node) in nodes.iter().enumerate() {
+            if split[i].is_some() || node.own.is_some() || !node.splittable {
+                continue;
+            }
+            if let (Some(base), Some(dir)) = (&node.base, app_dir(&node.proc)) {
+                split[i] = split_dirs.get(&(base.id.clone(), dir)).cloned();
+            }
+        }
     }
 
     let root_names: Vec<String> = nodes.iter().map(|n| exe_name(&n.proc)).collect();
@@ -683,6 +721,41 @@ pub(crate) mod tests {
         );
         let steam = apps.iter().find(|a| a.name == "Steam").expect("Steam");
         assert_eq!((steam.kind, steam.pids()), (AppKind::App, vec![2, 3]));
+    }
+
+    /// Visto en Linux Mint (GNOME): Firefox lanzado desde rofi queda en el
+    /// scope de rofi, que ya terminó, y el proceso se llama `firefox-bin`.
+    #[test]
+    fn an_app_started_from_a_launcher_is_not_named_after_the_launcher() {
+        use crate::apps::desktop::tests::index_with;
+        let (_tmp, index) = index_with(&[
+            ("rofi.desktop", "Name=Rofi\nExec=rofi -show\nIcon=rofi"),
+            (
+                "firefox.desktop",
+                "Name=Firefox Web Browser\nExec=firefox %u\nIcon=firefox",
+            ),
+        ]);
+        let scope = format!("{APP}/app-gnome-rofi-5020.scope");
+        let apps = group_apps_with(
+            vec![
+                proc(5042, 2015, "/usr/lib/firefox/firefox-bin", &scope),
+                proc(5047, 2015, "/usr/lib/firefox/crashhelper", &scope),
+                proc(5147, 5042, "/usr/lib/firefox/firefox-bin", &scope),
+                proc(5200, 2015, "/usr/bin/some-helper", &scope),
+            ],
+            Some(&index),
+        );
+        let firefox = apps
+            .iter()
+            .find(|a| a.name == "Firefox Web Browser")
+            .expect("Firefox");
+        assert_eq!(
+            (firefox.kind, firefox.pids()),
+            (AppKind::App, vec![5042, 5047, 5147])
+        );
+        // Lo que vive en una carpeta compartida se queda donde estaba.
+        let rofi = apps.iter().find(|a| a.name == "Rofi").expect("Rofi");
+        assert_eq!(rofi.pids(), vec![5200]);
     }
 
     #[test]

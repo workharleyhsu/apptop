@@ -266,7 +266,18 @@ impl DesktopIndex {
     }
 
     /// Como [`DesktopIndex::by_exec`], indicando además cómo coincidió.
+    ///
+    /// Si el nombre termina en `-bin` se prueba también sin el sufijo: en
+    /// Debian, Ubuntu y Mint `firefox` es un script que lanza
+    /// `/usr/lib/firefox/firefox-bin`.
     pub fn match_exec(&self, program: &str) -> Option<(Arc<DesktopInfo>, ExecMatch)> {
+        self.match_exec_exact(program).or_else(|| {
+            let plain = program.strip_suffix("-bin").filter(|p| !p.is_empty())?;
+            self.match_exec_exact(plain)
+        })
+    }
+
+    fn match_exec_exact(&self, program: &str) -> Option<(Arc<DesktopInfo>, ExecMatch)> {
         if let Some((i, _)) = self.by_exec.get(program) {
             return self.get(*i).map(|info| (info, ExecMatch::ExecLine));
         }
@@ -393,6 +404,24 @@ pub(crate) mod tests {
         assert!(index.by_exec("python3").is_none());
         assert!(steam.visible);
         assert!(!index.by_app_id("agent").unwrap().visible);
+    }
+
+    /// Visto en Linux Mint: el proceso de Firefox se llama `firefox-bin`.
+    #[test]
+    fn a_bin_suffix_on_the_executable_is_ignored() {
+        let (_tmp, index) = index_with(&[
+            (
+                "firefox.desktop",
+                "Name=Firefox Web Browser\nExec=firefox %u\nIcon=firefox",
+            ),
+            ("tool-bin.desktop", "Name=Tool\nExec=tool-bin\nIcon=tool"),
+        ]);
+        let (firefox, how) = index.match_exec("firefox-bin").unwrap();
+        assert_eq!((firefox.id.as_str(), how), ("firefox", ExecMatch::ExecLine));
+        // Una coincidencia exacta gana sobre la versión sin sufijo.
+        assert_eq!(index.by_exec("tool-bin").unwrap().id, "tool-bin");
+        assert!(index.by_exec("python3-bin").is_none());
+        assert!(index.by_exec("-bin").is_none());
     }
 
     /// Visto en CachyOS/KDE: `app-firefox\x20\x281\x29@<hash>.service`.
