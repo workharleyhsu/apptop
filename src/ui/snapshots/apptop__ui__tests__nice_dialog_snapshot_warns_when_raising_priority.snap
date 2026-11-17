@@ -3,12 +3,12 @@ source: src/ui/mod.rs
 expression: text
 ---
 apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servicios
-                          Firefox                           CPU 23.5%  tope 200%
-⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢠⣤⡄
+                          Firefox                           CPU 23.5%  tope 100%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢸⣿⡇
 ⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
-⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  Usuario    ana                               ⢸⣿⡇
-⢸                      ⡇  Activa     2h 03m                            ⢸⣿⡇
-⢸                      ⡇  Procesos   3 · 172 hilos               ⣀⣀⣀⣀⣀⣤⣼⣿⣷⣶⣶⣾⣿⣿⣿
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  Usuario    ana                               ⢸⣿⡇     ⣀
+⢸                      ⡇  Activa     2h 03m                            ⢸⣿⣇⣤⣴⣶⣾⣿⣿
+⢸                      ⡇  Procesos   3 · 172 hilos               ⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
 ⢸             ╭─ Prioridad de la aplicación ─────────────────────╮3G   tope 6.6G
 ⢸             │ Firefox · 3 procesos afectados                   │
 ⢸             │ Prioridad actual: 0                              │ ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿

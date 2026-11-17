@@ -64,7 +64,7 @@ impl Theme {
             .add_modifier(Modifier::BOLD)
     }
 
-    /// Color para un porcentaje de uso (100 = un núcleo, o el total).
+    /// Color para un porcentaje de uso sobre el total (0–100).
     pub fn load(&self, pct: f32) -> Color {
         match pct {
             p if p >= 90.0 => self.rgb((247, 118, 142)),

@@ -129,9 +129,14 @@ pub fn area_rows(values: &[Option<f64>], height: usize, max: f64) -> Vec<String>
         .collect()
 }
 
-/// Escala del eje de CPU: el múltiplo de 100 % que contiene al pico.
+/// Escala del eje de CPU: el primer tope "redondo" que contiene al pico.
+/// El uso va sobre el total de la máquina, así que nunca pasa de 100 %; con
+/// un eje fijo de 100 una app que usa 3 % se vería como una línea plana.
 pub fn cpu_scale(peak: f64) -> f64 {
-    ((peak / 100.0).ceil().max(1.0)) * 100.0
+    [5.0, 10.0, 25.0, 50.0]
+        .into_iter()
+        .find(|top| peak <= *top)
+        .unwrap_or(100.0)
 }
 
 /// Dibuja un gráfico de área en `area` (sin título).
@@ -215,10 +220,13 @@ mod tests {
     }
 
     #[test]
-    fn cpu_axis_rounds_up_to_whole_cores() {
-        assert_eq!(cpu_scale(0.0), 100.0);
-        assert_eq!(cpu_scale(99.0), 100.0);
-        assert_eq!(cpu_scale(101.0), 200.0);
-        assert_eq!(cpu_scale(380.0), 400.0);
+    fn cpu_axis_picks_the_first_round_top_above_the_peak() {
+        assert_eq!(cpu_scale(0.0), 5.0);
+        assert_eq!(cpu_scale(4.9), 5.0);
+        assert_eq!(cpu_scale(8.0), 10.0);
+        assert_eq!(cpu_scale(18.0), 25.0);
+        assert_eq!(cpu_scale(50.0), 50.0);
+        assert_eq!(cpu_scale(51.0), 100.0);
+        assert_eq!(cpu_scale(380.0), 100.0);
     }
 }

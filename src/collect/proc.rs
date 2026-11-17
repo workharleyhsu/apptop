@@ -32,7 +32,8 @@ pub struct ProcInfo {
     pub cgroup: Option<String>,
     /// Letra de estado del kernel (`R`, `S`, `T`, `Z`, ...).
     pub state: char,
-    /// Porcentaje de un núcleo desde la muestra anterior (0 en la primera).
+    /// Porcentaje de la CPU total de la máquina (100 = todos los núcleos
+    /// ocupados) desde la muestra anterior; 0 en la primera.
     pub cpu_pct: f32,
     /// Memoria residente en bytes.
     pub rss: u64,
@@ -66,6 +67,9 @@ pub struct Collector {
     last: Option<Instant>,
     generation: u64,
     ticks_per_second: f64,
+    /// Núcleos de la máquina: el uso se expresa sobre el total, igual que
+    /// la barra de CPU del sistema.
+    cores: f64,
     page_size: u64,
 }
 
@@ -88,12 +92,23 @@ impl Collector {
             last: None,
             generation: 0,
             ticks_per_second: procfs::ticks_per_second() as f64,
+            cores: 1.0,
             page_size: procfs::page_size(),
         }
     }
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// Cantidad de núcleos según `<raíz>/stat`; 1 si no se puede leer.
+    fn read_cores(&self) -> f64 {
+        fs::read_to_string(self.root.join("stat"))
+            .ok()
+            .and_then(|text| super::system::parse_stat(&text))
+            .map(|(_, cores)| cores)
+            .filter(|cores| *cores > 0)
+            .unwrap_or(1) as f64
     }
 
     pub fn ticks_per_second(&self) -> f64 {
@@ -111,6 +126,8 @@ impl Collector {
             .map(|t| now.saturating_duration_since(t).as_secs_f64());
         self.last = Some(now);
         self.generation += 1;
+        // Puede cambiar en caliente (hotplug): se relee en cada muestra.
+        self.cores = self.read_cores();
 
         let mut out = Vec::with_capacity(self.cache.len().max(64));
         if let Ok(iter) = all_processes_with_root(&self.root) {
@@ -140,7 +157,7 @@ impl Collector {
             if let (Some(c), Some(dt)) = (self.cache.get(&pid), elapsed) {
                 if dt > 0.0 {
                     let delta = ticks.saturating_sub(c.ticks) as f64;
-                    cpu_pct = (delta / self.ticks_per_second / dt * 100.0) as f32;
+                    cpu_pct = (delta / self.ticks_per_second / dt / self.cores * 100.0) as f32;
                 }
             }
         }
@@ -282,6 +299,26 @@ mod tests {
         let procs = c.sample_at(t0 + Duration::from_secs(1));
         assert!(
             (procs[0].cpu_pct - 50.0).abs() < 1.5,
+            "{}",
+            procs[0].cpu_pct
+        );
+    }
+
+    #[test]
+    fn cpu_percent_is_relative_to_the_whole_machine() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Máquina de 4 núcleos: un proceso que ocupa un núcleo entero es 25 %.
+        let stat = "cpu  1 0 1 1 0 0 0 0\ncpu0 0 0 0 0\ncpu1 0 0 0 0\ncpu2 0 0 0 0\ncpu3 0 0 0 0\n";
+        fs::write(tmp.path().join("stat"), stat).unwrap();
+        fake_proc(tmp.path(), 7, "burn", 1, (100, 0), "/");
+        let mut c = Collector::with_root(tmp.path());
+        let t0 = Instant::now();
+        c.sample_at(t0);
+        let one_second = c.ticks_per_second() as u64;
+        fake_proc(tmp.path(), 7, "burn", 1, (100 + one_second, 0), "/");
+        let procs = c.sample_at(t0 + Duration::from_secs(1));
+        assert!(
+            (procs[0].cpu_pct - 25.0).abs() < 0.5,
             "{}",
             procs[0].cpu_pct
         );

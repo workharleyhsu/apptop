@@ -3,12 +3,12 @@ source: src/ui/mod.rs
 expression: text
 ---
 apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servicios
-                          Firefox                           CPU 23.5%  tope 200%
-⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢠⣤⡄
+                          Firefox                           CPU 23.5%  tope 100%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢸⣿⡇
 ⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
-⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀╭─ Enviar señal ─────────────────────────────────╮      ⢸⣿⡇
-⢸              │ firefox (pid 4130) · 1 proceso afectado        │      ⢸⣿⡇
-⢸              │                                                │⣀⣀⣀⣀⣀⣤⣼⣿⣷⣶⣶⣾⣿⣿⣿
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀╭─ Enviar señal ─────────────────────────────────╮      ⢸⣿⡇     ⣀
+⢸              │ firefox (pid 4130) · 1 proceso afectado        │      ⢸⣿⣇⣤⣴⣶⣾⣿⣿
+⢸              │                                                │⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
 ⢸              │   SIGTERM  pedir que termine                   │.3G   tope 6.6G
 ⢸              │   SIGKILL  terminar por la fuerza              │
 ⢸              │   SIGINT   interrumpir (como Ctrl+C)           │  ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿

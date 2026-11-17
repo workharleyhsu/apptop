@@ -245,6 +245,10 @@ invalidan si cambia la ruta, la fecha o el tamaño del archivo.
 
 **Datos.** Todo sale de `/proc` y `/sys`, sin ejecutar otros programas.
 
+**CPU.** Todos los porcentajes van sobre el total de la máquina, igual que la
+barra superior: 100 % son todos los núcleos ocupados. En un equipo de 12
+núcleos, una app que satura un núcleo figura como 8 %, no como 100 %.
+
 ## Limitaciones
 
 - **Red: aproximada** (así figura en la interfaz). Sin root el kernel no da

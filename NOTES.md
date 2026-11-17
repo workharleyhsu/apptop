@@ -279,3 +279,13 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
   - Auxiliares reparentados con otro ejecutable quedan en la app que los lanzó.
   - El índice de `.desktop` se carga al arrancar: una app instalada con apptop abierto no
     toma nombre ni icono hasta reiniciarlo.
+
+## Después del loop — CPU sobre el total
+- Pedido del usuario: Steam marcaba picos de 100 % con el sistema en menos de 20 %. El % por
+  app estaba en "porcentaje de un núcleo" (como `top`) y la barra superior sobre el total.
+- Ahora todo va sobre el total de la máquina: el colector divide por la cantidad de núcleos
+  (`cpuN` de `/proc/stat`, releída en cada muestra). Vale para apps, procesos del árbol y
+  gráficos. La suma de las apps coincide con la barra superior (17 % vs 21 %, la diferencia
+  es kernel e iowait).
+- El eje del gráfico de CPU pasa a topes 5/10/25/50/100 %: con el eje fijo en 100 una app
+  que usa 3 % se vería plana.
