@@ -19,31 +19,9 @@ It does not need root: whatever cannot be read is shown as `n/a`.
 
 Grid (80×24). Apps without an icon get a generic window, services a gear:
 
-```text
-apptop  CPU ━━━━────── 37%  RAM ━━━━────── 6.0G/16.0G  Swap ━───────── 512M/8.0G
-── Applications (3) ────────────────────────────────────────────────────────────
-      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡀  ╭ ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡀ ╮  ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡀
-     ⢸⠁⡖⡆⢰⢲⢀⡖⡆     ⠈⡇ │⢸⠁⡖⡆⢰⢲⢀⡖⡆     ⠈⡇│ ⢸⠁⡖⡆⢰⢲⢀⡖⡆     ⠈⡇
-     ⢸⠤⠭⠥⠬⠭⠤⠭⠥⠤⠤⠤⠤⠤⠤⡇ │⢸⠤⠭⠥⠬⠭⠤⠭⠥⠤⠤⠤⠤⠤⠤⡇│ ⢸⠤⠭⠥⠬⠭⠤⠭⠥⠤⠤⠤⠤⠤⠤⡇
-     ⢸              ⡇ │⢸              ⡇│ ⢸              ⡇
-     ⢸              ⡇ │⢸              ⡇│ ⢸              ⡇
-     ⢸              ⡇ │⢸              ⡇│ ⢸              ⡇
-     ⢸⡀            ⢀⡇ │⢸⡀            ⢀⡇│ ⢸⡀            ⢀⡇
-      ⠈⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁  │ ⠈⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁ │  ⠈⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁
-        Alacritty     │    Firefox     │ Un nombre largu…
-        2.1% 310M     ╰   23.5% 5.3G   ╯   120.0% 12.0M
+```img
+<img width="868" height="1087" alt="image" src="https://github.com/user-attachments/assets/f888eca5-5c32-4414-bf6d-eb47fdac79d3" />
 
-── Services (2) ────────────────────────────────────────────────────────────────
-           ⢰⠒⠒⡆              ⢰⠒⠒⡆
-       ⡔⠉⠲⠔⠊  ⠑⠢⠖⠉⢢      ⡔⠉⠲⠔⠊  ⠑⠢⠖⠉⢢
-       ⢘⠆  ⣀⠤⠤⣀  ⠰⡃      ⢘⠆  ⣀⠤⠤⣀  ⠰⡃
-     ⢰⠒⠊  ⡜⠁  ⠈⢣  ⠑⠒⡆  ⢰⠒⠊  ⡜⠁  ⠈⢣  ⠑⠒⡆
-     ⠸⠤⢄  ⢣⡀  ⢀⡜  ⡠⠤⠇  ⠸⠤⢄  ⢣⡀  ⢀⡜  ⡠⠤⠇
-       ⢨⠆  ⠉⠒⠒⠉  ⠰⡅      ⢨⠆  ⠉⠒⠒⠉  ⠰⡅
-       ⠣⣀⠴⠢⢄  ⡠⠔⠦⣀⠜      ⠣⣀⠴⠢⢄  ⡠⠔⠦⣀⠜
-           ⠸⠤⠤⠇              ⠸⠤⠤⠇
-          docker           pipewire
-Enter open  / filter  s sort: name  x close  K kill  p pause  S signal  q quit
 ```
 
 Detail view of an app (80×24):
