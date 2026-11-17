@@ -289,3 +289,11 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
   es kernel e iowait).
 - El eje del gráfico de CPU pasa a topes 5/10/25/50/100 %: con el eje fijo en 100 una app
   que usa 3 % se vería plana.
+
+## Después del loop — binario precompilado
+- El build normal enlaza contra glibc 2.43 (Fedora 44): no arranca en Ubuntu/Debian. El
+  binario a publicar se compila con `x86_64-unknown-linux-musl`, estático (3.05 MB,
+  1.5 MB comprimido). `scripts/package.sh` lo arma en `dist/` con README y SHA-256.
+- Con musl, el nombre de usuario sale solo de `/etc/passwd` (sin NSS): en equipos con
+  LDAP/sssd se vería el uid numérico.
+- Probado solo en esta máquina (Fedora 44). Falta LICENSE antes de publicar.

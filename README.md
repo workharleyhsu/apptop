@@ -122,7 +122,24 @@ En la terminal los contornos van en color; acá se ven en texto plano.
 
 ## Instalación
 
-Requiere Linux con cgroup v2 y systemd, y Rust estable (edición 2021).
+Requiere Linux x86-64 con cgroup v2 y systemd.
+
+### Binario precompilado
+
+Es un ejecutable estático: no depende de la versión de la distribución.
+
+```sh
+tar -xzf apptop-0.1.0-x86_64-linux.tar.gz
+sha256sum -c apptop-0.1.0-x86_64-linux.tar.gz.sha256   # opcional
+install -Dm755 apptop-0.1.0-x86_64-linux/apptop ~/.local/bin/apptop
+apptop
+```
+
+`~/.local/bin` tiene que estar en el `PATH`.
+
+### Desde el código
+
+Con Rust estable (edición 2021):
 
 ```sh
 git clone <url-del-repo> apptop
@@ -277,6 +294,9 @@ cargo build --release
 Los tests de interfaz usan `ratatui::backend::TestBackend` con snapshots de
 `insta` (`INSTA_UPDATE=always cargo test` para regenerarlos). Los tests de
 acciones solo envían señales a procesos `sleep` que ellos mismos lanzan.
+
+`scripts/package.sh` arma el binario precompilado (estático, con musl) en
+`dist/`; necesita `rustup target add x86_64-unknown-linux-musl`.
 
 `PROGRESS.md` lleva el estado de las tareas y `NOTES.md` las decisiones de
 diseño y las mediciones de rendimiento.
