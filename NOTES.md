@@ -297,3 +297,23 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
 - Con musl, el nombre de usuario sale solo de `/etc/passwd` (sin NSS): en equipos con
   LDAP/sssd se vería el uid numérico.
 - Probado solo en esta máquina (Fedora 44). Falta LICENSE antes de publicar.
+
+## Después del loop — licencia e idiomas
+- Licencia `MIT OR Apache-2.0` (`LICENSE-MIT`, `LICENSE-APACHE`, campo en `Cargo.toml`).
+  Las ~190 dependencias son compatibles (ninguna GPL; 2 MPL-2.0 sin modificar).
+- Interfaz en inglés por defecto y español con `language = "es"` o `--lang es`. No se
+  detecta el idioma del sistema (decisión del usuario).
+- `src/i18n.rs`: `struct Texts` con un campo por texto fijo y constantes `EN`/`ES` → el
+  compilador exige cada texto en los dos idiomas. Los que llevan números o plurales son
+  métodos de `Lang`. Sin crates de i18n: para dos idiomas y ~150 textos no se justifican.
+- El idioma viaja en `State::lang`, nunca en una global: los tests corren en paralelo.
+- Las advertencias de configuración son un enum (`config::Warning`): el idioma en que se
+  muestran sale de la misma configuración y recién se conoce después de leerla.
+- `--help` solo en inglés: clap toma esos textos en compilación.
+- Confirman `y` y `s` en cualquier idioma; el diálogo muestra la del idioma activo.
+- Etiqueta de red en inglés: "Net est." y no "Net approx.", que con 11 letras se pegaba al
+  valor en la columna de 11. Hay un test que exige que toda etiqueta deje un espacio.
+- Tests: por defecto en inglés; el español queda cubierto con 3 snapshots propios y un test
+  de que las columnas del detalle coinciden en ambos idiomas.
+- `README.md` en inglés y `README.es.md` en español, con capturas de los snapshots de cada
+  idioma. Comentarios del código, este archivo y `PROGRESS.md` siguen en español.

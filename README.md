@@ -1,26 +1,27 @@
 # apptop
 
-Monitor de recursos para terminal Linux, al estilo de btop pero centrado en
-**aplicaciones** en lugar de procesos sueltos.
+**English** · [Español](README.es.md)
 
-- La pantalla principal es una grilla con el icono de cada app y servicio en
-  ejecución. Cada icono es el icono real de la app convertido a un contorno de
-  líneas en braille (sin relleno ni fondo), pintado con su color dominante.
-- Al abrir un icono se ve el detalle de esa app: todos sus procesos en árbol,
-  CPU, RAM, disco, GPU y red, con gráficos de los últimos dos minutos.
-- Desde ahí (o desde la grilla) se puede cerrar, matar, pausar, cambiar la
-  prioridad o enviar cualquier señal, a la app entera o a un solo proceso.
+A resource monitor for the Linux terminal, in the spirit of btop but centred on
+**applications** instead of individual processes.
 
-No necesita root: lo que no se puede leer se muestra como `n/d`.
+- The main screen is a grid with the icon of every running app and service.
+  Each icon is the app's real icon turned into a braille line outline (no fill,
+  no background), drawn in its dominant colour.
+- Opening an icon shows that app in detail: all its processes as a tree, CPU,
+  RAM, disk, GPU and network, with graphs of the last two minutes.
+- From there (or from the grid) you can close, kill or pause it, change its
+  priority or send any signal, to the whole app or to a single process.
 
-## Capturas
+It does not need root: whatever cannot be read is shown as `n/a`.
 
-Grilla (80×24). Las apps sin icono usan una ventana genérica y los servicios
-un engranaje:
+## Screenshots
+
+Grid (80×24). Apps without an icon get a generic window, services a gear:
 
 ```text
 apptop  CPU ━━━━────── 37%  RAM ━━━━────── 6.0G/16.0G  Swap ━───────── 512M/8.0G
-── Aplicaciones (3) ────────────────────────────────────────────────────────────
+── Applications (3) ────────────────────────────────────────────────────────────
       ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡀  ╭ ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡀ ╮  ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡀
      ⢸⠁⡖⡆⢰⢲⢀⡖⡆     ⠈⡇ │⢸⠁⡖⡆⢰⢲⢀⡖⡆     ⠈⡇│ ⢸⠁⡖⡆⢰⢲⢀⡖⡆     ⠈⡇
      ⢸⠤⠭⠥⠬⠭⠤⠭⠥⠤⠤⠤⠤⠤⠤⡇ │⢸⠤⠭⠥⠬⠭⠤⠭⠥⠤⠤⠤⠤⠤⠤⡇│ ⢸⠤⠭⠥⠬⠭⠤⠭⠥⠤⠤⠤⠤⠤⠤⡇
@@ -32,7 +33,7 @@ apptop  CPU ━━━━────── 37%  RAM ━━━━─────�
         Alacritty     │    Firefox     │ Un nombre largu…
         2.1% 310M     ╰   23.5% 5.3G   ╯   120.0% 12.0M
 
-── Servicios (2) ───────────────────────────────────────────────────────────────
+── Services (2) ────────────────────────────────────────────────────────────────
            ⢰⠒⠒⡆              ⢰⠒⠒⡆
        ⡔⠉⠲⠔⠊  ⠑⠢⠖⠉⢢      ⡔⠉⠲⠔⠊  ⠑⠢⠖⠉⢢
        ⢘⠆  ⣀⠤⠤⣀  ⠰⡃      ⢘⠆  ⣀⠤⠤⣀  ⠰⡃
@@ -42,55 +43,55 @@ apptop  CPU ━━━━────── 37%  RAM ━━━━─────�
        ⠣⣀⠴⠢⢄  ⡠⠔⠦⣀⠜      ⠣⣀⠴⠢⢄  ⡠⠔⠦⣀⠜
            ⠸⠤⠤⠇              ⠸⠤⠤⠇
           docker           pipewire
-Enter abrir  / filtrar  s orden: nombre  x cerrar  K matar  p pausar  q salir
+Enter open  / filter  s sort: name  x close  K kill  p pause  S signal  q quit
 ```
 
-Detalle de una app (80×24):
+Detail view of an app (80×24):
 
 ```text
-apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servicios
-                          Firefox                           CPU 23.5%  tope 200%
-⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢠⣤⡄
+apptop  CPU n/a  RAM n/a  Swap n/a                    ⟳ 1s · 3 apps · 2 services
+                          Firefox                           CPU 23.5%   max 100%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  application · app                            ⢸⣿⡇
 ⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
-⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  Usuario    ana                               ⢸⣿⡇
-⢸                      ⡇  Activa     2h 03m                            ⢸⣿⡇
-⢸                      ⡇  Procesos   3 · 172 hilos               ⣀⣀⣀⣀⣀⣤⣼⣿⣷⣶⣶⣾⣿⣿⣿
-⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G   tope 6.6G
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  User       ana                               ⢸⣿⡇     ⣀
+⢸                      ⡇  Uptime     2h 03m                            ⢸⣿⣇⣤⣴⣶⣾⣿⣿
+⢸                      ⡇  Processes  3 · 172 threads             ⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G    max 6.6G
 ⢸                      ⡇  CPU        23.5%
 ⢸                      ⡇  RAM        5.3G  (PSS 1.2G)              ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
-⢸                      ⡇  Disco      L 2.3M/s  E 342K/s          ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⢸                      ⡇  Disk       R 2.3M/s  W 342K/s          ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
 ⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠔⠁  GPU        18% gfx · VRAM 512M         ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-                          Red aprox. ↓820K/s ↑50.8K/s            ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+                          Net est.   ↓820K/s ↑50.8K/s            ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
 
-     PID  PROCESO                                  CPU%     RAM HILOS  ESTADO
-    4100  firefox                                   1.5    900M   120  S duerme
-    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S duerme
-    4222  └─ firefox                               97.2    250M    22  T pausado
-
-
+     PID  PROCESS                                  CPU%     RAM   THR  STATE
+    4100  firefox                                   1.5    900M   120  S asleep
+    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S asleep
+    4222  └─ firefox                               97.2    250M    22  T stopped
 
 
 
-x cerrar  K matar  p pausar  n prioridad  S señal  Esc volver  q salir
+
+
+x close  K kill  p pause  n priority  S signal  Esc back  q quit
 ```
 
-Toda acción destructiva pide confirmación mostrando a qué y a cuántos procesos
-afecta:
+Every destructive action asks for confirmation and says what it affects and
+how many processes:
 
 ```text
-⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│ (se excluye 1 proceso del que depende apptop) │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-               │                                               │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-               │ [s] sí     [n] no                             │
-     PID  PROCE╰───────────────────────────────────────────────╯HILOS  ESTADO
-    4100  firefox                                   1.5    900M   120  S duerme
-    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S duerme
-    4222  └─ firefox                               97.2    250M    22  T pausado
-
-
+⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G    max 6.6G
+⢸                 ╭─ Close application ─────────────────────╮
+⢸                 │ Send SIGTERM to Firefox?                │      ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
+⢸                 │ 2 processes affected                    │    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│ (excluding 1 process apptop depends on) │    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+                  │                                         │    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+                  │ [y] yes     [n] no                      │
+     PID  PROCESS ╰─────────────────────────────────────────╯AM   THR  STATE
+    4100  firefox                                   1.5    900M   120  S asleep
 ```
 
-Un icono real convertido (`apptop --dump-icon firefox --large`) y los dos
-iconos genéricos:
+A real icon converted (`apptop --dump-icon firefox --large`) and the two
+generic icons:
 
 ```text
              ⢀⡤⢲⡀
@@ -118,171 +119,184 @@ iconos genéricos:
       ⠸⠤⠤⠇         ⠈⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁
 ```
 
-En la terminal los contornos van en color; acá se ven en texto plano.
+In a terminal the outlines are coloured; here they are plain text.
 
-## Instalación
+## Installation
 
-Requiere Linux x86-64 con cgroup v2 y systemd.
+Requires x86-64 Linux with cgroup v2 and systemd.
 
-### Binario precompilado
+### Prebuilt binary
 
-Es un ejecutable estático: no depende de la versión de la distribución.
+It is a static executable, so it does not depend on your distribution's
+version.
 
 ```sh
 tar -xzf apptop-0.1.0-x86_64-linux.tar.gz
-sha256sum -c apptop-0.1.0-x86_64-linux.tar.gz.sha256   # opcional
+sha256sum -c apptop-0.1.0-x86_64-linux.tar.gz.sha256   # optional
 install -Dm755 apptop-0.1.0-x86_64-linux/apptop ~/.local/bin/apptop
 apptop
 ```
 
-`~/.local/bin` tiene que estar en el `PATH`.
+`~/.local/bin` must be in your `PATH`.
 
-### Desde el código
+### From source
 
-Con Rust estable (edición 2021):
+With stable Rust (2021 edition):
 
 ```sh
-git clone <url-del-repo> apptop
+git clone <repo-url> apptop
 cd apptop
-cargo install --path .        # instala en ~/.cargo/bin/apptop
+cargo install --path .        # installs to ~/.cargo/bin/apptop
 ```
 
-O solo compilar: `cargo build --release` deja el binario en
-`target/release/apptop`. Es un único ejecutable de unos 3 MB sin dependencias
-en tiempo de ejecución.
+Or just build it: `cargo build --release` leaves the binary in
+`target/release/apptop`. It is a single executable of about 3 MB with no
+runtime dependencies.
 
-No lo ejecutes con `sudo`: no hace falta, y como root las acciones afectarían a
-procesos de todo el sistema.
+Do not run it with `sudo`: it is not needed, and as root the actions would
+reach every process on the system.
 
-Para ver bien los iconos hace falta una fuente con braille y una terminal con
-color de 24 bits (si no, se degrada a 256 colores). El tamaño mínimo es 80×24.
+The icons need a font with braille glyphs and look best in a terminal with
+24-bit colour (otherwise they fall back to 256 colours). The minimum size is
+80×24.
 
-## Atajos
+## Keys
 
-### Grilla
+### Grid
 
-| Tecla | Acción |
-|-------|--------|
-| `←` `↑` `↓` `→` / `h` `j` `k` `l` | Mover la selección |
-| `Inicio` / `g`, `Fin` / `G`, `RePág`, `AvPág` | Saltar |
-| `Enter` | Abrir el detalle de la app |
-| `/` | Filtrar por texto (nombre, id o nombre de algún proceso) |
-| `s` | Cambiar el orden: nombre → CPU → RAM |
-| `Tab` | Ver todo → solo apps → solo servicios |
-| `Esc` | Quitar el filtro |
-| `q` / `Ctrl+C` | Salir |
+| Key | Action |
+|-----|--------|
+| `←` `↑` `↓` `→` / `h` `j` `k` `l` | Move the selection |
+| `Home` / `g`, `End` / `G`, `PgUp`, `PgDn` | Jump |
+| `Enter` | Open the app's detail view |
+| `/` | Filter by text (name, id or the name of any of its processes) |
+| `s` | Cycle the sort order: name → CPU → RAM |
+| `Tab` | Show all → apps only → services only |
+| `Esc` | Clear the filter |
+| `q` / `Ctrl+C` | Quit |
 
-Mouse: un clic selecciona, un clic sobre la app ya seleccionada la abre, y la
-rueda mueve una fila.
+Mouse: a click selects, a click on the already selected app opens it, and the
+wheel moves by one row.
 
-### Detalle
+### Detail view
 
-| Tecla | Acción |
-|-------|--------|
-| `↑` `↓` / `j` `k` | Elegir un proceso del árbol (por encima del primero: toda la app) |
-| `Esc` / `Retroceso` | Volver a la grilla, con la misma selección |
-| `q` | Salir |
+| Key | Action |
+|-----|--------|
+| `↑` `↓` / `j` `k` | Choose a process in the tree (above the first one: the whole app) |
+| `Esc` / `Backspace` | Back to the grid, with the same selection |
+| `q` | Quit |
 
-### Acciones (en la grilla y en el detalle)
+### Actions (in the grid and in the detail view)
 
-Actúan sobre la app seleccionada. En el detalle, si hay un proceso elegido en
-el árbol, actúan solo sobre ese proceso.
+They act on the selected app. In the detail view, if a process is chosen in
+the tree, they act on that process only.
 
-| Tecla | Acción |
-|-------|--------|
-| `x` | Cerrar (SIGTERM), con confirmación |
-| `K` | Matar (SIGKILL), con confirmación |
-| `p` | Pausar / reanudar (SIGSTOP / SIGCONT) |
-| `n` | Cambiar la prioridad (nice) |
-| `S` | Menú para elegir cualquier señal |
-| `+` / `-` | Refresco más rápido / más lento |
+| Key | Action |
+|-----|--------|
+| `x` | Close (SIGTERM), with confirmation |
+| `K` | Kill (SIGKILL), with confirmation |
+| `p` | Pause / resume (SIGSTOP / SIGCONT) |
+| `n` | Change the priority (nice) |
+| `S` | Menu to pick any signal |
+| `+` / `-` | Refresh faster / slower |
 
-En los diálogos solo `s` confirma; cualquier otra tecla cancela.
+In dialogs only `y` confirms (`s` also works); any other key cancels.
 
-apptop nunca se envía señales a sí mismo, y no pausa a la shell ni a la
-terminal que lo contienen. Subir la prioridad de un proceso (bajar su nice)
-requiere privilegios: en ese caso se informa qué permiso falta.
+apptop never signals itself, and it will not pause the shell or the terminal
+it runs in.
 
-## Línea de comandos
+**About priority.** It only matters when the CPU is saturated: it decides who
+gets CPU time when there is not enough for everyone. Raising a process's
+priority (lowering its nice value) requires privileges, and apptop tells you
+which permission is missing. That also means lowering priority is one-way for a
+regular user: to get it back you have to restart the app.
+
+## Command line
 
 ```text
-apptop                        interfaz interactiva
-apptop -r 2                   refresco cada 2 segundos (0.25 a 10)
-apptop --list                 apps detectadas, PIDs y recursos, en texto plano
-apptop --dump-icon firefox    icono convertido (--large para el tamaño grande)
-apptop --snapshot             un cuadro de la grilla, en texto
+apptop                        interactive interface
+apptop -r 2                   refresh every 2 seconds (0.25 to 10)
+apptop --lang es              Spanish interface
+apptop --list                 detected apps, PIDs and usage, as plain text
+apptop --dump-icon firefox    converted icon (--large for the big size)
+apptop --snapshot             one frame of the grid, as text
 apptop --snapshot --app firefox --size 120x40
-                              un cuadro del detalle de una app
-apptop --print-config         configuración efectiva
-apptop --config otro.toml     usar otro archivo de configuración
+                              one frame of an app's detail view
+apptop --print-config         effective configuration
+apptop --config other.toml    use another configuration file
 ```
 
-`--list`, `--dump-icon` y `--snapshot` no necesitan una terminal: sirven para
-scripts y para ver qué detecta apptop.
+`--list`, `--dump-icon` and `--snapshot` do not need a terminal: they are meant
+for scripts and for checking what apptop detects.
 
-## Configuración
+## Configuration
 
-Opcional, en `~/.config/apptop/config.toml`:
+Optional, in `~/.config/apptop/config.toml`:
 
 ```toml
-refresh = 1.0          # segundos entre refrescos (0.25 a 10)
+refresh = 1.0          # seconds between refreshes (0.25 to 10)
 sort = "name"          # name | cpu | ram
 icon_size = "large"    # small (8x4) | medium (12x6) | large (16x8)
+language = "en"        # en | es
 
 [theme]
 color = "auto"         # auto | truecolor | 256
-accent = "#7aa2f7"     # color de la selección y los atajos
-icons = "breeze"       # tema de iconos; por defecto, el del escritorio
+accent = "#7aa2f7"     # colour of the selection and the shortcuts
+icons = "breeze"       # icon theme; defaults to the desktop's
 ```
 
-Un valor inválido o una clave desconocida producen una advertencia y se usa el
-valor por defecto; nunca impiden arrancar.
+An invalid value or an unknown key produces a warning and the default is used;
+they never prevent apptop from starting.
 
-## Cómo funciona
+The interface is in English by default and also available in Spanish.
 
-**Agrupar procesos en apps.** Se usa el cgroup de cada proceso
-(`/proc/<pid>/cgroup`): los scopes `app-*.scope` son apps gráficas (los
-`app-flatpak-*`, Flatpak), los `*.service` son servicios de usuario o de
-sistema, y los scopes de contenedores se muestran como servicios. Varias
-ventanas de la misma app se juntan en una sola. Si un programa con su propio
-`.desktop` fue lanzado desde otra app (un navegador abierto desde una
-terminal), se separa como app propia. Lo que no tiene un cgroup útil se agrupa
-por ejecutable y árbol de padres.
+## How it works
 
-**Nombre e icono.** Salen del archivo `.desktop`, buscado por el nombre del
-scope, `StartupWMClass` o `Exec`. El icono se localiza en el tema activo, con
-respaldo en hicolor y pixmaps.
+**Grouping processes into apps.** Each process's cgroup
+(`/proc/<pid>/cgroup`) decides: `app-*.scope` units are graphical apps
+(`app-flatpak-*` ones are Flatpaks), `*.service` units are user or system
+services, and container scopes are shown as services. Several windows of the
+same app are merged into one. If a program with its own `.desktop` file was
+started from another app (a browser launched from a terminal), it is split out
+as its own app. Whatever has no useful cgroup is grouped by executable and
+parent tree.
 
-**Iconos.** El SVG o PNG se rasteriza, se recorta a su contenido, se detectan
-la silueta (canal alfa) y los bordes de color internos (Sobel con supresión de
-no-máximos e histéresis), y el resultado se pasa a braille de 2×4 puntos por
-celda. El color es el tono dominante, ignorando transparentes, blancos, negros
-y grises. Los iconos convertidos se guardan en `~/.cache/apptop/` y se
-invalidan si cambia la ruta, la fecha o el tamaño del archivo.
+**Name and icon.** They come from the `.desktop` file, looked up by scope name,
+`StartupWMClass` or `Exec`. The icon is located in the active theme, falling
+back to hicolor and pixmaps.
 
-**Datos.** Todo sale de `/proc` y `/sys`, sin ejecutar otros programas.
+**Icons.** The SVG or PNG is rasterised and cropped to its content; the
+silhouette (alpha channel) and the inner colour edges (Sobel with non-maximum
+suppression and hysteresis) are detected, and the result is mapped to braille
+at 2×4 dots per cell. The colour is the dominant hue, ignoring transparent,
+white, black and grey pixels. Converted icons are cached in `~/.cache/apptop/`
+and invalidated when the file's path, date or size changes.
 
-**CPU.** Todos los porcentajes van sobre el total de la máquina, igual que la
-barra superior: 100 % son todos los núcleos ocupados. En un equipo de 12
-núcleos, una app que satura un núcleo figura como 8 %, no como 100 %.
+**Data.** Everything comes from `/proc` and `/sys`; no other programs are run.
 
-## Limitaciones
+**CPU.** Every percentage is relative to the whole machine, like the top bar:
+100 % means every core is busy. On a 12-core machine an app that saturates one
+core shows as 8 %, not 100 %.
 
-- **Red: aproximada** (así figura en la interfaz). Sin root el kernel no da
-  contadores por proceso; apptop cruza los sockets de la app con los contadores
-  TCP de `sock_diag`. Solo cuenta TCP (no UDP ni QUIC) y pierde lo transferido
-  por conexiones que se abren y cierran entre dos refrescos.
-- **Procesos de otros usuarios:** disco, GPU, red y PSS solo se pueden leer de
-  los procesos propios; para el resto se muestra `n/d (sin permiso)`.
-- **GPU:** se lee de `fdinfo` (`drm-engine-*`, `drm-memory-*`). Está verificado
-  en hardware con Intel (i915); el formato de AMD (amdgpu) está cubierto por
-  tests con datos de ejemplo, no probado en una máquina real.
-- **Iconos:** se soportan SVG y PNG. El texto dentro de un SVG no se dibuja.
-- **Auxiliares reparentados:** un proceso auxiliar con otro ejecutable que
-  quedó huérfano (por ejemplo un `crashhelper`) puede aparecer bajo la app
-  desde la que se lanzó el programa.
+## Limitations
 
-## Desarrollo
+- **Network is estimated** (and labelled as such in the interface). Without
+  root the kernel has no per-process counters; apptop matches the app's sockets
+  against the TCP counters from `sock_diag`. It only counts TCP (not UDP or
+  QUIC) and misses connections that open and close between two refreshes.
+- **Other users' processes:** disk, GPU, network and PSS can only be read for
+  your own processes; the rest show `n/a (no permission)`.
+- **GPU:** read from `fdinfo` (`drm-engine-*`, `drm-memory-*`). Verified on
+  real hardware with Intel (i915); the AMD (amdgpu) format is covered by tests
+  with sample data, not tried on a real machine.
+- **Icons:** SVG and PNG are supported. Text inside an SVG is not drawn.
+- **Reparented helpers:** a helper process with a different executable that was
+  orphaned (a `crashhelper`, for instance) can show up under the app the
+  program was launched from.
+- **New installs:** the `.desktop` index is loaded at startup, so an app
+  installed while apptop is open gets its name and icon after a restart.
+
+## Development
 
 ```sh
 cargo fmt
@@ -291,21 +305,24 @@ cargo test
 cargo build --release
 ```
 
-Los tests de interfaz usan `ratatui::backend::TestBackend` con snapshots de
-`insta` (`INSTA_UPDATE=always cargo test` para regenerarlos). Los tests de
-acciones solo envían señales a procesos `sleep` que ellos mismos lanzan.
+Interface tests use `ratatui::backend::TestBackend` with `insta` snapshots
+(`INSTA_UPDATE=always cargo test` regenerates them). The action tests only
+send signals to `sleep` processes they start themselves.
 
-`scripts/package.sh` arma el binario precompilado (estático, con musl) en
-`dist/`; necesita `rustup target add x86_64-unknown-linux-musl`.
+User-facing text lives in `src/i18n.rs`; adding a string means adding it in
+both languages, and the compiler enforces it.
 
-`PROGRESS.md` lleva el estado de las tareas y `NOTES.md` las decisiones de
-diseño y las mediciones de rendimiento.
+`scripts/package.sh` builds the prebuilt binary (static, with musl) into
+`dist/`; it needs `rustup target add x86_64-unknown-linux-musl`.
 
-## Licencia
+Code comments, `NOTES.md` (design decisions and performance measurements) and
+`PROGRESS.md` are in Spanish.
 
-Doble licencia, a elección: [MIT](LICENSE-MIT) o
+## License
+
+Dual-licensed, at your option, under [MIT](LICENSE-MIT) or
 [Apache-2.0](LICENSE-APACHE).
 
-Salvo que se indique lo contrario, toda contribución enviada para incluirse
-en este proyecto queda bajo esa misma doble licencia, sin términos
-adicionales.
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in this project shall be dual-licensed as above,
+without any additional terms or conditions.
