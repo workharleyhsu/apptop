@@ -413,3 +413,17 @@ Cinnamon vive en dconf, no en un archivo, así que la detección caía en
 
 De paso: `apptop --list | head` terminaba con un panic por tubería rota. Ahora
 `main` restaura la acción por defecto de SIGPIPE.
+
+## v0.1.4 — reintento con sudo
+- Si el kernel rechaza una señal o un cambio de prioridad por permisos, se ofrece reintentar
+  solo esos procesos con sudo. El diálogo muestra el comando exacto (`kill` o `renice` con
+  los PIDs, sin shell). apptop nunca corre como root.
+- Si sudo necesita contraseña, la interfaz se suspende y `sudo -v` la pide en la terminal.
+  Recién después se vuelven a comprobar los PIDs (`starttime`) y se ejecuta con `sudo -n`,
+  así el tiempo de escribir la contraseña no deja ventana para un PID reutilizado.
+- Ctrl+C durante el prompt: el manejador de SIGINT lo ignora mientras está suspendido, así
+  cancela sudo sin cerrar apptop. Es un manejador y no `SIG_IGN` para que sudo lo reciba.
+- `renice` recibe todos los hilos: en Linux `nice` es por hilo.
+- Verificado en tmux con un `sleep` de `systemd-run --user`: diálogo, prompt y cancelación.
+  Falta probar el camino con la contraseña correcta.
+- README: capturas reales en PNG (`docs/screenshots/`, fuera del paquete del crate).
