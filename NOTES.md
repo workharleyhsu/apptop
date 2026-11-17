@@ -336,3 +336,13 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
 - El test de estrés tenía umbrales que dependían de la carga de la máquina (falló una vez
   con load 13 mientras compilaba otra cosa): ahora solo exige un mínimo simbólico.
 - CI en GitHub Actions: fmt, clippy y tests sobre ubuntu-latest.
+- Publicado: https://github.com/workharleyhsu/apptop (público), release `v0.1.0` con
+  `.tar.gz`, `.deb`, `.rpm` y `SHA256SUMS`. CI en verde desde el primer push.
+- `install.sh` no usa la API de GitHub (60 consultas/hora por IP, y falló desde un
+  contenedor): cada release lleva además `apptop-x86_64-linux.tar.gz` con nombre fijo y se
+  baja de `releases/latest/download`. **Al publicar una versión nueva hay que subir también
+  ese archivo y su `.sha256`** (los genera `scripts/package.sh`).
+- El push va por HTTPS con `gh` como helper de credenciales (config local del repo): la
+  clave SSH de esta máquina no está aceptada por GitHub.
+- Para publicar la próxima versión: subir `version` en `Cargo.toml`, `scripts/package.sh`,
+  tag `vX.Y.Z`, `gh release create vX.Y.Z dist/*`.
