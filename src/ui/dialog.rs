@@ -6,6 +6,7 @@ use ratatui::style::{Modifier, Style};
 
 use super::state::{ActionRequest, NiceRequest, State};
 use super::theme::Theme;
+use crate::actions::SIGNAL_MENU;
 
 /// Dibuja un cuadro centrado con borde, título y líneas de texto. El
 /// interior se limpia con espacios (sin color de fondo).
@@ -81,6 +82,36 @@ pub fn draw_confirm(buf: &mut Buffer, area: Rect, state: &State, request: &Actio
     lines.push((String::new(), theme.text()));
     lines.push(("[s] sí     [n] no".to_string(), theme.selected()));
     draw_box(buf, area, theme, request.title(), &lines);
+}
+
+/// Menú de señales: una por fila, con el cursor marcado.
+pub fn draw_signal_menu(buf: &mut Buffer, area: Rect, state: &State, cursor: usize) {
+    let theme = state.theme;
+    let target = match state.action_scope() {
+        Some((targets, label, _)) => format!("{label} · {}", affected(targets.len())),
+        None => String::new(),
+    };
+    let mut lines = vec![
+        (target, theme.text().add_modifier(Modifier::BOLD)),
+        (String::new(), theme.text()),
+    ];
+    for (row, (signal, description)) in SIGNAL_MENU.iter().enumerate() {
+        let (marker, style) = if row == cursor {
+            ("▶", theme.selected())
+        } else {
+            (" ", theme.text())
+        };
+        lines.push((
+            format!("{marker} {:<8} {description}", signal.as_str()),
+            style,
+        ));
+    }
+    lines.push((String::new(), theme.text()));
+    lines.push((
+        "[↑/↓] elegir   [Enter] enviar   [Esc] cancelar".to_string(),
+        theme.dim(),
+    ));
+    draw_box(buf, area, theme, "Enviar señal", &lines);
 }
 
 /// Selector de prioridad: valor actual, valor nuevo y una regla de -20 a 19.

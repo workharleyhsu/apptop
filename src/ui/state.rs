@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use std::collections::HashMap;
 
-use crate::actions::{filter_targets, Signal, Target, NICE_MAX, NICE_MIN};
+use crate::actions::{
+    filter_targets, needs_confirmation, Signal, Target, NICE_MAX, NICE_MIN, SIGNAL_MENU,
+};
 use crate::apps::{App, AppKind, DetailData, Sample};
 use crate::collect::SystemStats;
 use crate::icons::GRID_ICON;
@@ -119,6 +121,8 @@ pub enum Mode {
     Confirm(ActionRequest),
     /// Eligiendo el valor de `nice` a aplicar.
     Nice(NiceRequest),
+    /// Eligiendo una señal del menú; el número es la fila del cursor.
+    SignalMenu(usize),
 }
 
 /// Un cambio de prioridad en preparación o listo para aplicarse.
@@ -568,6 +572,44 @@ impl State {
         };
         if let Some(request) = self.build_request(signal) {
             self.pending = Some(request);
+        }
+    }
+
+    /// Abre el menú de señales (si hay algo a lo que enviarlas).
+    pub fn open_signal_menu(&mut self) {
+        if self.action_scope().is_some() {
+            self.mode = Mode::SignalMenu(0);
+        }
+    }
+
+    /// Mueve el cursor del menú de señales.
+    pub fn signal_menu_move(&mut self, delta: isize) {
+        if let Mode::SignalMenu(cursor) = &mut self.mode {
+            let last = SIGNAL_MENU.len() as isize - 1;
+            *cursor = (*cursor as isize).saturating_add(delta).clamp(0, last) as usize;
+        }
+    }
+
+    /// Elige la señal bajo el cursor: las peligrosas pasan por el diálogo
+    /// de confirmación; pausar y reanudar se envían directamente.
+    pub fn signal_menu_choose(&mut self) {
+        let Mode::SignalMenu(cursor) = std::mem::take(&mut self.mode) else {
+            return;
+        };
+        let Some((signal, _)) = SIGNAL_MENU.get(cursor) else {
+            return;
+        };
+        if needs_confirmation(*signal) {
+            self.ask_signal(*signal);
+        } else if let Some(request) = self.build_request(*signal) {
+            self.pending = Some(request);
+        }
+    }
+
+    /// Cierra el menú de señales sin enviar nada.
+    pub fn close_signal_menu(&mut self) {
+        if matches!(self.mode, Mode::SignalMenu(_)) {
+            self.mode = Mode::Normal;
         }
     }
 
@@ -1123,6 +1165,79 @@ pub(crate) mod tests {
         assert!(
             matches!(&s.mode, Mode::Nice(r) if r.single_process && r.current == (-3, -3) && r.value == -3)
         );
+    }
+
+    #[test]
+    fn signal_menu_confirms_dangerous_signals_and_sends_pause_directly() {
+        let mut s = state_with_procs();
+        s.open_signal_menu();
+        assert_eq!(s.mode, Mode::SignalMenu(0));
+        s.signal_menu_move(-3);
+        assert_eq!(s.mode, Mode::SignalMenu(0));
+        s.signal_menu_move(2);
+        s.signal_menu_choose();
+        // SIGINT: pasa por confirmación, con título genérico.
+        let Mode::Confirm(request) = s.mode.clone() else {
+            panic!("debe pedir confirmación");
+        };
+        assert_eq!(
+            (request.signal, request.title()),
+            (Signal::SIGINT, "Enviar señal a la aplicación")
+        );
+        s.answer_confirm(true);
+        assert_eq!(s.pending.take().unwrap().signal, Signal::SIGINT);
+
+        // SIGCONT (fila 6): directo, sin diálogo.
+        s.open_signal_menu();
+        s.signal_menu_move(6);
+        s.signal_menu_choose();
+        assert_eq!(s.mode, Mode::Normal);
+        assert_eq!(s.pending.take().unwrap().signal, Signal::SIGCONT);
+
+        // El cursor no pasa del final y Esc no envía nada.
+        s.open_signal_menu();
+        s.signal_menu_move(500);
+        assert_eq!(s.mode, Mode::SignalMenu(SIGNAL_MENU.len() - 1));
+        s.close_signal_menu();
+        assert!(s.mode == Mode::Normal && s.pending.is_none());
+    }
+
+    #[test]
+    fn every_action_can_target_a_single_process_of_the_tree() {
+        let mut s = state_with_procs();
+        s.enter_detail();
+        s.move_proc_cursor(3); // tercera fila del árbol: pid 12
+        let only = vec![Target {
+            pid: 12,
+            starttime: 12,
+        }];
+
+        s.ask_signal(Signal::SIGTERM);
+        assert!(matches!(&s.mode, Mode::Confirm(r) if r.targets == only && r.single_process));
+        s.answer_confirm(true);
+        assert_eq!(s.pending.take().unwrap().label, "ed (pid 12)");
+
+        s.toggle_pause();
+        assert_eq!(s.pending.take().unwrap().targets, only);
+
+        s.ask_nice();
+        assert!(matches!(&s.mode, Mode::Nice(r) if r.targets == only));
+        s.nice_finish(true);
+        assert_eq!(s.pending_nice.take().unwrap().targets, only);
+
+        s.open_signal_menu();
+        s.signal_menu_move(1);
+        s.signal_menu_choose();
+        assert!(
+            matches!(&s.mode, Mode::Confirm(r) if r.signal == Signal::SIGKILL && r.targets == only)
+        );
+        assert!(matches!(&s.mode, Mode::Confirm(r) if r.title() == "Matar proceso"));
+        s.answer_confirm(false);
+
+        // Volver a "toda la app": el alcance vuelve a ser los tres procesos.
+        s.move_proc_cursor(-10);
+        s.ask_signal(Signal::SIGTERM);
+        assert!(matches!(&s.mode, Mode::Confirm(r) if r.targets.len() == 3 && !r.single_process));
     }
 
     #[test]

@@ -198,3 +198,12 @@ Decisiones y problemas, por iteración.
   CAP_SYS_NICE"; EPERM → "son de otro usuario". El selector avisa antes de aplicar si el
   valor elegido sube la prioridad.
 - Verificado con `sleep` propios: 0 → 5 aplicado a los 3; 5 → 0 rechazado con el mensaje.
+
+## Iteración 24 — menú de señales y acciones por proceso
+- `S` (mayúscula; `s` sigue siendo ordenar) abre un menú con 9 señales. Todas pasan por la
+  confirmación salvo SIGSTOP/SIGCONT, que se deshacen entre sí.
+- Alcance de TODA acción (cerrar, matar, pausar, prioridad, señal): en el detalle, si hay un
+  proceso elegido en el árbol actúa solo sobre ese; si no (o en la grilla), sobre la app
+  entera. El diálogo siempre dice a qué y a cuántos procesos afecta.
+- Verificado con `sleep` propios: SIGTERM desde el menú a una fila del árbol terminó solo
+  ese proceso; los otros dos siguieron vivos.

@@ -1,0 +1,28 @@
+---
+source: src/ui/mod.rs
+expression: text
+---
+apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servicios
+                          Firefox                           CPU 23.5%  tope 200%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢠⣤⡄
+⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀╭─ Enviar señal ─────────────────────────────────╮      ⢸⣿⡇
+⢸              │ firefox (pid 4130) · 1 proceso afectado        │      ⢸⣿⡇
+⢸              │                                                │⣀⣀⣀⣀⣀⣤⣼⣿⣷⣶⣶⣾⣿⣿⣿
+⢸              │   SIGTERM  pedir que termine                   │.3G   tope 6.6G
+⢸              │   SIGKILL  terminar por la fuerza              │
+⢸              │   SIGINT   interrumpir (como Ctrl+C)           │  ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
+⢸              │ ▶ SIGHUP   colgar / recargar configuración     │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│   SIGQUIT  salir con volcado de memoria        │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+               │   SIGSTOP  pausar                              │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+               │   SIGCONT  reanudar                            │
+     PID  PROCE│   SIGUSR1  definida por el programa (1)        │ILOS  ESTADO
+    4100  firef│   SIGUSR2  definida por el programa (2)        │ 120  S duerme
+▶   4130  ├─ fi│                                                │  30  S duerme
+    4222  └─ fi│ [↑/↓] elegir   [Enter] enviar   [Esc] cancelar │  22  T pausado
+               ╰────────────────────────────────────────────────╯
+
+
+
+
+↑/↓ elegir  Enter enviar  Esc cancelar

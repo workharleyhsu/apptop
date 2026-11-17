@@ -62,6 +62,26 @@ impl SignalReport {
     }
 }
 
+/// Señales que ofrece el menú, con una descripción corta.
+pub const SIGNAL_MENU: &[(Signal, &str)] = &[
+    (Signal::SIGTERM, "pedir que termine"),
+    (Signal::SIGKILL, "terminar por la fuerza"),
+    (Signal::SIGINT, "interrumpir (como Ctrl+C)"),
+    (Signal::SIGHUP, "colgar / recargar configuración"),
+    (Signal::SIGQUIT, "salir con volcado de memoria"),
+    (Signal::SIGSTOP, "pausar"),
+    (Signal::SIGCONT, "reanudar"),
+    (Signal::SIGUSR1, "definida por el programa (1)"),
+    (Signal::SIGUSR2, "definida por el programa (2)"),
+];
+
+/// ¿Hay que pedir confirmación antes de enviar esta señal? Pausar y
+/// reanudar se deshacen con la señal opuesta; el resto puede terminar el
+/// proceso o hacerle perder trabajo.
+pub fn needs_confirmation(signal: Signal) -> bool {
+    !matches!(signal, Signal::SIGSTOP | Signal::SIGCONT)
+}
+
 /// `starttime` actual del pid según `/proc/<pid>/stat`, o `None` si no existe.
 pub fn current_starttime(root: &Path, pid: i32) -> Option<u64> {
     let stat = fs::read_to_string(root.join(pid.to_string()).join("stat")).ok()?;
@@ -220,6 +240,21 @@ mod tests {
             }
         );
         assert!(report.is_problem());
+    }
+
+    #[test]
+    fn menu_lists_distinct_signals_and_only_pause_resume_skip_confirmation() {
+        let mut seen = std::collections::HashSet::new();
+        assert!(SIGNAL_MENU
+            .iter()
+            .all(|(s, d)| seen.insert(*s) && !d.is_empty()));
+        assert_eq!(SIGNAL_MENU[0].0, Signal::SIGTERM);
+        let unconfirmed: Vec<Signal> = SIGNAL_MENU
+            .iter()
+            .map(|(s, _)| *s)
+            .filter(|s| !needs_confirmation(*s))
+            .collect();
+        assert_eq!(unconfirmed, vec![Signal::SIGSTOP, Signal::SIGCONT]);
     }
 
     #[test]

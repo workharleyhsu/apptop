@@ -62,6 +62,7 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
     match &state.mode {
         Mode::Confirm(request) => dialog::draw_confirm(buf, body, state, request),
         Mode::Nice(request) => dialog::draw_nice(buf, body, state, request),
+        Mode::SignalMenu(cursor) => dialog::draw_signal_menu(buf, body, state, *cursor),
         Mode::Normal | Mode::Filter => {}
     }
 }
@@ -323,6 +324,19 @@ mod tests {
         state.nice_adjust(9);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         assert!(text.contains("Nueva:   5") && !text.contains("requiere root"));
+    }
+
+    #[test]
+    fn signal_menu_snapshot_for_a_single_process() {
+        let mut state = detail_state();
+        state.move_proc_cursor(2);
+        state.open_signal_menu();
+        state.signal_menu_move(3);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        insta::assert_snapshot!(text);
+        assert!(text.contains("firefox (pid 4130) · 1 proceso afectado"));
+        assert!(text.contains("▶ SIGHUP"));
+        assert!(text.contains("  SIGUSR2"));
     }
 
     #[test]

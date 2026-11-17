@@ -55,6 +55,18 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
             }
             return Outcome::Redraw;
         }
+        Mode::SignalMenu(_) => {
+            match key.code {
+                KeyCode::Up | KeyCode::Char('k') => state.signal_menu_move(-1),
+                KeyCode::Down | KeyCode::Char('j') => state.signal_menu_move(1),
+                KeyCode::Home => state.signal_menu_move(isize::MIN / 2),
+                KeyCode::End => state.signal_menu_move(isize::MAX / 2),
+                KeyCode::Enter => state.signal_menu_choose(),
+                KeyCode::Esc | KeyCode::Char('q') => state.close_signal_menu(),
+                _ => return Outcome::Ignored,
+            }
+            return Outcome::Redraw;
+        }
         Mode::Normal => {}
     }
     // Acciones sobre la app seleccionada (o el proceso elegido en el detalle).
@@ -73,6 +85,10 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
         }
         KeyCode::Char('n') => {
             state.ask_nice();
+            return Outcome::Redraw;
+        }
+        KeyCode::Char('S') => {
+            state.open_signal_menu();
             return Outcome::Redraw;
         }
         _ => {}
@@ -520,6 +536,33 @@ mod tests {
         handle_event(&mut s, &key(KeyCode::Char('n')));
         handle_event(&mut s, &key(KeyCode::Esc));
         assert!(s.pending_nice.is_none() && s.mode == Mode::Normal);
+    }
+
+    #[test]
+    fn shift_s_opens_the_signal_menu_and_lowercase_s_still_sorts() {
+        use crate::apps::group::tests::proc;
+        use crate::ui::state::SortKey;
+        let mut s = laid_out(2, 0, 80, 24);
+        s.apps[0].procs = vec![proc(500, 1, "/b/a", "/")];
+        handle_event(&mut s, &key(KeyCode::Char('s')));
+        assert_eq!((s.sort, s.mode.clone()), (SortKey::Cpu, Mode::Normal));
+
+        handle_event(&mut s, &key(KeyCode::Char('S')));
+        assert_eq!(s.mode, Mode::SignalMenu(0));
+        handle_event(&mut s, &key(KeyCode::Down));
+        handle_event(&mut s, &key(KeyCode::Char('j')));
+        handle_event(&mut s, &key(KeyCode::Char('k')));
+        assert_eq!(s.mode, Mode::SignalMenu(1));
+        // Enter sobre SIGKILL no envía: abre la confirmación.
+        handle_event(&mut s, &key(KeyCode::Enter));
+        assert!(matches!(&s.mode, Mode::Confirm(r) if r.signal == Signal::SIGKILL));
+        assert!(s.pending.is_none());
+        handle_event(&mut s, &key(KeyCode::Char('n')));
+        assert!(s.mode == Mode::Normal && s.pending.is_none());
+
+        handle_event(&mut s, &key(KeyCode::Char('S')));
+        handle_event(&mut s, &key(KeyCode::Esc));
+        assert!(s.mode == Mode::Normal && s.pending.is_none());
     }
 
     #[test]
