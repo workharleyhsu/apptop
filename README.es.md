@@ -91,16 +91,7 @@ x cerrar  K matar  p pausar  n prioridad  S señal  Esc volver  q salir
 Toda acción destructiva pide confirmación mostrando a qué y a cuántos procesos
 afecta:
 
-```text
-⢸                      ⡇  CPU        23.5%
-⢸                      ⡇ ╭─ Cerrar aplicación ────────╮            ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
-⢸                      ⡇ │ ¿Enviar SIGTERM a Firefox? │          ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠔⠁ │ 3 procesos afectados       │M         ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-                         │                            │          ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-                         │ [s] sí     [n] no          │
-     PID  PROCESO        ╰────────────────────────────╯     RAM HILOS  ESTADO
-    4100  firefox                                   1.5    900M   120  S duerme
-```
+![apptop pidiendo confirmar SIGKILL a firefox](docs/screenshots/confirm.png)
 
 Un icono real convertido (`apptop --dump-icon firefox --large`) y los dos
 iconos genéricos:

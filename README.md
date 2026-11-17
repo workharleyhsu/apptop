@@ -58,17 +58,7 @@ x close  K kill  p pause  n priority  S signal  Esc back  q quit
 Every destructive action asks for confirmation and says what it affects and
 how many processes:
 
-```text
-⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G    max 6.6G
-⢸                 ╭─ Close application ─────────────────────╮
-⢸                 │ Send SIGTERM to Firefox?                │      ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
-⢸                 │ 2 processes affected                    │    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│ (excluding 1 process apptop depends on) │    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-                  │                                         │    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-                  │ [y] yes     [n] no                      │
-     PID  PROCESS ╰─────────────────────────────────────────╯AM   THR  STATE
-    4100  firefox                                   1.5    900M   120  S asleep
-```
+![apptop asking to confirm SIGKILL to firefox](docs/screenshots/confirm.png)
 
 A real icon converted (`apptop --dump-icon firefox --large`) and the two
 generic icons:
