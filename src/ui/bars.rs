@@ -87,7 +87,11 @@ pub fn draw_top(buf: &mut Buffer, area: Rect, state: &State) {
         .iter()
         .filter(|a| a.kind == crate::apps::AppKind::App)
         .count();
-    let summary = format!("{apps} apps · {} servicios", state.apps.len() - apps);
+    let summary = format!(
+        "⟳ {} · {apps} apps · {} servicios",
+        super::format::human_interval(state.refresh),
+        state.apps.len() - apps
+    );
     let width = summary.chars().count() as u16;
     if area.x + area.width >= end + width + 2 {
         buf.set_string(area.x + area.width - width, area.y, summary, dim);
@@ -134,6 +138,7 @@ pub fn hints(state: &State) -> Vec<Hint> {
                 Hint::new("/", "filtrar", 5),
                 Hint::new("s", format!("orden: {}", state.sort.label()), 4),
                 Hint::new("Tab", format!("ver: {}", state.sections.label()), 3),
+                Hint::new("+/-", "refresco", 2),
             ];
             if !state.filter.is_empty() {
                 hints.push(Hint::new("Esc", "quitar filtro", 8));

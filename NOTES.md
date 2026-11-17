@@ -104,3 +104,9 @@ Decisiones y problemas, por iteración.
 - La barra inferior depende de vista y modo; cada atajo tiene prioridad y los menos
   importantes se descartan si no entran (a 80 columnas se cae "mover").
 - Con menos de 3 filas se omiten las barras y queda solo el contenido.
+
+## Iteración 13 — refresco
+- `--refresh/-r <seg>` y teclas `+`/`-` (pasos de 250 ms, entre 0.25 s y 10 s); el intervalo
+  se ve en la barra superior. El intervalo vive en `State` para que la tecla rija al instante.
+- Sin parpadeo: solo se dibuja si algo cambió y ratatui manda solo las celdas distintas.
+  Verificado bajo pty: 0 secuencias `ESC[2J` en 7 cuadros, ~0.8 kB por refresco.

@@ -1,5 +1,7 @@
 //! Estado de la interfaz, independiente del dibujo.
 
+use std::time::Duration;
+
 use crate::apps::{App, AppKind, Sample};
 use crate::collect::SystemStats;
 use crate::icons::GRID_ICON;
@@ -110,8 +112,20 @@ pub enum Mode {
     Filter,
 }
 
+/// Límites del intervalo de refresco.
+pub const MIN_REFRESH: Duration = Duration::from_millis(250);
+pub const MAX_REFRESH: Duration = Duration::from_secs(10);
+pub const DEFAULT_REFRESH: Duration = Duration::from_secs(1);
+
+/// Lleva un intervalo al rango permitido.
+pub fn clamp_refresh(interval: Duration) -> Duration {
+    interval.clamp(MIN_REFRESH, MAX_REFRESH)
+}
+
 pub struct State {
     pub view: View,
+    /// Intervalo entre muestras.
+    pub refresh: Duration,
     pub mode: Mode,
     pub sort: SortKey,
     pub sections: Sections,
@@ -138,6 +152,7 @@ impl State {
     pub fn new(theme: Theme) -> Self {
         Self {
             view: View::Grid,
+            refresh: DEFAULT_REFRESH,
             mode: Mode::Normal,
             sort: SortKey::default(),
             sections: Sections::default(),
@@ -195,6 +210,17 @@ impl State {
         if !still_there {
             self.selected = self.order.first().map(|i| self.apps[*i].id.clone());
         }
+    }
+
+    /// Hace el refresco más lento (`slower`) o más rápido, de a 250 ms.
+    pub fn adjust_refresh(&mut self, slower: bool) {
+        let step = Duration::from_millis(250);
+        let next = if slower {
+            self.refresh.saturating_add(step)
+        } else {
+            self.refresh.saturating_sub(step)
+        };
+        self.refresh = clamp_refresh(next);
     }
 
     pub fn cycle_sort(&mut self) {
@@ -503,6 +529,27 @@ pub(crate) mod tests {
         assert_eq!(s.selected_app().unwrap().name, "docker");
         s.cycle_sections();
         assert_eq!(names(&s).len(), 5);
+    }
+
+    #[test]
+    fn refresh_interval_adjusts_within_limits() {
+        let mut s = State::new(Theme::default());
+        assert_eq!(s.refresh, Duration::from_secs(1));
+        s.adjust_refresh(false);
+        assert_eq!(s.refresh, Duration::from_millis(750));
+        for _ in 0..10 {
+            s.adjust_refresh(false);
+        }
+        assert_eq!(s.refresh, MIN_REFRESH);
+        for _ in 0..100 {
+            s.adjust_refresh(true);
+        }
+        assert_eq!(s.refresh, MAX_REFRESH);
+        assert_eq!(clamp_refresh(Duration::ZERO), MIN_REFRESH);
+        assert_eq!(
+            clamp_refresh(Duration::from_secs(3)),
+            Duration::from_secs(3)
+        );
     }
 
     #[test]

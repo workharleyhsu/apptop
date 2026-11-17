@@ -32,6 +32,18 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
     if state.mode == Mode::Filter {
         return filter_key(state, key);
     }
+    // El intervalo de refresco se ajusta desde cualquier vista.
+    match key.code {
+        KeyCode::Char('+') | KeyCode::Char('=') => {
+            state.adjust_refresh(false);
+            return Outcome::Redraw;
+        }
+        KeyCode::Char('-') => {
+            state.adjust_refresh(true);
+            return Outcome::Redraw;
+        }
+        _ => {}
+    }
     match state.view {
         View::Grid => grid_key(state, key),
         View::Detail => detail_key(state, key),
@@ -289,6 +301,24 @@ mod tests {
         assert_eq!(s.sort, SortKey::Cpu);
         handle_event(&mut s, &key(KeyCode::Tab));
         assert_eq!((s.sections, s.visible().count()), (Sections::Apps, 3));
+    }
+
+    #[test]
+    fn plus_and_minus_change_the_refresh_interval() {
+        use std::time::Duration;
+        let mut s = laid_out(1, 0, 80, 24);
+        handle_event(&mut s, &key(KeyCode::Char('+')));
+        assert_eq!(s.refresh, Duration::from_millis(750));
+        handle_event(&mut s, &key(KeyCode::Char('-')));
+        handle_event(&mut s, &key(KeyCode::Char('-')));
+        assert_eq!(s.refresh, Duration::from_millis(1250));
+        // Mientras se filtra, '+' y '-' son texto.
+        handle_event(&mut s, &key(KeyCode::Char('/')));
+        handle_event(&mut s, &key(KeyCode::Char('-')));
+        assert_eq!(
+            (s.refresh, s.filter.as_str()),
+            (Duration::from_millis(1250), "-")
+        );
     }
 
     #[test]

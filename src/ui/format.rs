@@ -18,6 +18,12 @@ pub fn human_bytes(bytes: u64) -> String {
     }
 }
 
+/// Intervalo corto: `1s`, `0.75s`, `2.5s`.
+pub fn human_interval(interval: std::time::Duration) -> String {
+    let text = format!("{:.2}", interval.as_secs_f64());
+    format!("{}s", text.trim_end_matches('0').trim_end_matches('.'))
+}
+
 /// Recorta `text` a `width` columnas (con `…`) y lo centra con espacios.
 pub fn fit_center(text: &str, width: usize) -> String {
     let len = text.chars().count();
@@ -43,6 +49,15 @@ pub fn fit_center(text: &str, width: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn formats_intervals() {
+        use std::time::Duration;
+        assert_eq!(human_interval(Duration::from_secs(1)), "1s");
+        assert_eq!(human_interval(Duration::from_millis(750)), "0.75s");
+        assert_eq!(human_interval(Duration::from_millis(2500)), "2.5s");
+        assert_eq!(human_interval(Duration::from_secs(10)), "10s");
+    }
 
     #[test]
     fn centers_and_truncates() {

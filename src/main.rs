@@ -35,6 +35,10 @@ struct Cli {
     #[arg(long, value_name = "MODO", default_value = "auto")]
     color: String,
 
+    /// Segundos entre refrescos (0.25 a 10).
+    #[arg(long, short = 'r', value_name = "SEGUNDOS")]
+    refresh: Option<f64>,
+
     /// Renderiza un cuadro de la interfaz a texto y termina.
     #[arg(long)]
     snapshot: bool,
@@ -81,7 +85,11 @@ fn main() {
         eprintln!("apptop: la salida no es una terminal; usá --list, --snapshot o --dump-icon");
         std::process::exit(2);
     }
-    if let Err(err) = apptop::ui::run(RunOptions::default()) {
+    let mut options = RunOptions::default();
+    if let Some(seconds) = cli.refresh.filter(|s| s.is_finite() && *s > 0.0) {
+        options.refresh = Duration::from_secs_f64(seconds.min(3600.0));
+    }
+    if let Err(err) = apptop::ui::run(options) {
         eprintln!("apptop: {err}");
         std::process::exit(1);
     }

@@ -11,7 +11,7 @@ use crate::apps::Sampler;
 use crate::icons::IconStore;
 
 use super::input::{handle_event, Outcome};
-use super::state::State;
+use super::state::{clamp_refresh, State};
 use super::theme::Theme;
 
 /// Opciones de la sesión interactiva.
@@ -43,14 +43,17 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
     let mut sampler = Sampler::new();
     let mut store = IconStore::new();
     let mut state = State::new(Theme::detect());
+    state.refresh = clamp_refresh(options.refresh);
 
     // La primera muestra con CPU % necesita un intervalo; se muestra antes
     // una sin porcentajes para no arrancar con la pantalla vacía.
     state.apply(sampler.sample());
-    let mut next_sample = Instant::now() + options.refresh.min(Duration::from_millis(500));
+    let mut next_sample = Instant::now() + state.refresh.min(Duration::from_millis(500));
     let mut dirty = true;
 
     loop {
+        // Solo se dibuja cuando algo cambió, y ratatui emite únicamente las
+        // celdas distintas del cuadro anterior: no hay borrado ni parpadeo.
         if dirty {
             terminal.draw(|frame| super::draw(frame, &mut state, &mut store))?;
             dirty = false;
@@ -59,14 +62,19 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
         // que toque tomar la siguiente muestra.
         let wait = next_sample.saturating_duration_since(Instant::now());
         if event::poll(wait)? {
+            let before = state.refresh;
             match handle_event(&mut state, &event::read()?) {
                 Outcome::Quit => return Ok(()),
                 Outcome::Redraw => dirty = true,
                 Outcome::Ignored => {}
             }
+            if state.refresh != before {
+                // El intervalo nuevo rige desde ya, no desde la próxima muestra.
+                next_sample = Instant::now() + state.refresh;
+            }
         } else {
             state.apply(sampler.sample());
-            next_sample = Instant::now() + options.refresh;
+            next_sample = Instant::now() + state.refresh;
             dirty = true;
         }
     }
