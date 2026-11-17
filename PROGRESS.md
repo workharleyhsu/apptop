@@ -3,7 +3,7 @@
 ## Fase 1 — Base
 - [x] Proyecto cargo, estructura de módulos (`collect/`, `apps/`, `icons/`, `ui/`, `actions/`).
 - [x] Lectura de procesos: pid, ppid, nombre, exe, cmdline, CPU %, RAM (RSS/PSS), estado.
-- [ ] Agrupación en apps por cgroup con los fallbacks descritos. `--list` funcionando.
+- [x] Agrupación en apps por cgroup con los fallbacks descritos. `--list` funcionando.
 - [ ] Asociación con `.desktop` (nombre visible + ruta del icono).
 
 ## Fase 2 — Iconos

@@ -17,3 +17,12 @@ Decisiones y problemas, por iteración.
 - exe/cmdline/cgroup se cachean, pero se releen las 3 primeras muestras de un proceso nuevo:
   systemd lo mueve a su scope después del fork. PSS solo bajo demanda (`Collector::pss`).
 - `--list-procs` queda como modo de depuración.
+
+## Iteración 3 — agrupación
+- El nombre de la unidad se parte por `-` ANTES de desescapar: los guiones del AppID vienen
+  como `\x2d`. Instancias del mismo AppID se fusionan en una app.
+- `app-*.service` (autostart) cuenta como servicio pero conserva el AppID para el `.desktop`.
+- Sin unidad útil (session-N.scope, init.scope, run-*.service): un grupo por árbol de padres,
+  con el nombre del ejecutable de la raíz. Hilos del kernel fuera.
+- Pendiente para la tarea 4: firefox lanzado desde una terminal vive en el scope de alacritty;
+  hay que separar subárboles que correspondan a otro `.desktop`.
