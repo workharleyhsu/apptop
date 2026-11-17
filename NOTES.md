@@ -268,3 +268,14 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
   de `--dump-icon`; no contienen datos de la máquina de desarrollo.
 - Incluye instalación, atajos por vista, línea de comandos, configuración, cómo funciona y
   una sección de limitaciones (red aproximada, permisos, AMD sin verificar en hardware).
+
+## Cierre
+- 28 tareas marcadas, ninguna `[BLOQUEADA]`. Criterios de aceptación verificados con el
+  binario final: 203 tests (192 unitarios + 9 de acciones + 2 de estrés), clippy limpio,
+  0.70 % de CPU y 7.2 MB en reposo, primer cuadro en 46 ms.
+- Pendientes conocidos (no bloquean ningún criterio):
+  - GPU de AMD verificada solo con fixtures; falta probar en hardware amdgpu.
+  - Red: solo TCP. Con un programa eBPF se podría medir todo, pero requiere privilegios.
+  - Auxiliares reparentados con otro ejecutable quedan en la app que los lanzó.
+  - El índice de `.desktop` se carga al arrancar: una app instalada con apptop abierto no
+    toma nombre ni icono hasta reiniciarlo.

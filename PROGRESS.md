@@ -46,9 +46,11 @@
 - [x] README con capturas en texto, atajos e instalación.
 
 ## Criterios de aceptación
-- [ ] `cargo clippy -- -D warnings` y `cargo test` pasan limpios.
-- [ ] En reposo con refresco de 1 s: menos de 2 % de un núcleo y menos de 40 MB de RAM.
-- [ ] Arranque en menos de 300 ms con la caché de iconos caliente.
-- [ ] `--dump-icon` de una app instalada con icono produce un contorno reconocible.
-- [ ] Ningún panic al morir procesos durante el refresco (test de estrés con `sleep`).
-- [ ] Todas las tareas marcadas o justificadas como `[BLOQUEADA]`.
+- [x] `cargo clippy -- -D warnings` y `cargo test` pasan limpios. (203 tests)
+- [x] En reposo con refresco de 1 s: menos de 2 % de un núcleo y menos de 40 MB de RAM. (0.70 %, 7.2 MB)
+- [x] Arranque en menos de 300 ms con la caché de iconos caliente. (46 ms al primer cuadro)
+- [x] `--dump-icon` de una app instalada con icono produce un contorno reconocible. (firefox, Alacritty, Moonlight, RustDesk)
+- [x] Ningún panic al morir procesos durante el refresco (test de estrés con `sleep`). (`tests/stress.rs`)
+- [x] Todas las tareas marcadas o justificadas como `[BLOQUEADA]`. (28 de 28 marcadas, ninguna bloqueada)
+
+LOOP COMPLETO
