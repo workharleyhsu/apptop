@@ -4,7 +4,7 @@ use ratatui::crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 
-use super::state::{Move, State, View};
+use super::state::{Mode, Move, State, View};
 
 /// Qué debe hacer el bucle principal después de un evento.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,15 +29,64 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
         return Outcome::Quit;
     }
+    if state.mode == Mode::Filter {
+        return filter_key(state, key);
+    }
     match state.view {
         View::Grid => grid_key(state, key),
         View::Detail => detail_key(state, key),
     }
 }
 
+/// Teclas mientras se escribe el filtro: todo carácter es texto.
+fn filter_key(state: &mut State, key: &KeyEvent) -> Outcome {
+    match key.code {
+        KeyCode::Esc => state.clear_filter(),
+        KeyCode::Enter => state.accept_filter(),
+        KeyCode::Backspace => {
+            if state.filter.is_empty() {
+                state.accept_filter();
+            } else {
+                state.filter_pop();
+            }
+        }
+        // Las flechas siguen navegando sin salir del filtro.
+        KeyCode::Left => state.move_selection(Move::Left),
+        KeyCode::Right => state.move_selection(Move::Right),
+        KeyCode::Up => state.move_selection(Move::Up),
+        KeyCode::Down => state.move_selection(Move::Down),
+        KeyCode::Char(c)
+            if !key
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+        {
+            state.filter_push(c)
+        }
+        _ => return Outcome::Ignored,
+    }
+    Outcome::Redraw
+}
+
 fn grid_key(state: &mut State, key: &KeyEvent) -> Outcome {
     let movement = match key.code {
         KeyCode::Char('q') => return Outcome::Quit,
+        KeyCode::Char('/') => {
+            state.start_filter();
+            return Outcome::Redraw;
+        }
+        KeyCode::Char('s') => {
+            state.cycle_sort();
+            return Outcome::Redraw;
+        }
+        KeyCode::Tab => {
+            state.cycle_sections();
+            return Outcome::Redraw;
+        }
+        // Esc en la grilla quita el filtro aplicado.
+        KeyCode::Esc if !state.filter.is_empty() => {
+            state.clear_filter();
+            return Outcome::Redraw;
+        }
         KeyCode::Enter => {
             state.enter_detail();
             return Outcome::Redraw;
@@ -187,6 +236,59 @@ mod tests {
             handle_event(&mut s, &mouse(MouseEventKind::Moved, 3, 3)),
             Outcome::Ignored
         );
+    }
+
+    #[test]
+    fn slash_types_a_filter_where_letters_are_text_not_commands() {
+        let mut s = laid_out(3, 2, 80, 24);
+        handle_event(&mut s, &key(KeyCode::Char('/')));
+        assert_eq!(s.mode, Mode::Filter);
+        // 'q', 's' y 'j' son texto mientras se filtra.
+        for c in ['s', 'v', 'c', 'q'] {
+            assert_eq!(
+                handle_event(&mut s, &key(KeyCode::Char(c))),
+                Outcome::Redraw
+            );
+        }
+        assert_eq!(s.filter, "svcq");
+        handle_event(&mut s, &key(KeyCode::Backspace));
+        assert_eq!(s.visible().count(), 2);
+        handle_event(&mut s, &key(KeyCode::Right));
+        assert_eq!(s.selected_index(), Some(1));
+        handle_event(&mut s, &key(KeyCode::Enter));
+        assert_eq!((s.mode, s.filter.as_str()), (Mode::Normal, "svc"));
+        // Ya en modo normal, Esc limpia el filtro y 'q' vuelve a salir.
+        assert_eq!(handle_event(&mut s, &key(KeyCode::Esc)), Outcome::Redraw);
+        assert_eq!(s.visible().count(), 5);
+        assert_eq!(
+            handle_event(&mut s, &key(KeyCode::Char('q'))),
+            Outcome::Quit
+        );
+    }
+
+    #[test]
+    fn esc_while_filtering_clears_and_backspace_on_empty_exits() {
+        let mut s = laid_out(3, 2, 80, 24);
+        handle_event(&mut s, &key(KeyCode::Char('/')));
+        handle_event(&mut s, &key(KeyCode::Char('x')));
+        handle_event(&mut s, &key(KeyCode::Esc));
+        assert_eq!(
+            (s.mode, s.filter.as_str(), s.visible().count()),
+            (Mode::Normal, "", 5)
+        );
+        handle_event(&mut s, &key(KeyCode::Char('/')));
+        handle_event(&mut s, &key(KeyCode::Backspace));
+        assert_eq!(s.mode, Mode::Normal);
+    }
+
+    #[test]
+    fn s_cycles_sort_and_tab_cycles_sections() {
+        use crate::ui::state::{Sections, SortKey};
+        let mut s = laid_out(3, 2, 80, 24);
+        handle_event(&mut s, &key(KeyCode::Char('s')));
+        assert_eq!(s.sort, SortKey::Cpu);
+        handle_event(&mut s, &key(KeyCode::Tab));
+        assert_eq!((s.sections, s.visible().count()), (Sections::Apps, 3));
     }
 
     #[test]

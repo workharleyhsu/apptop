@@ -159,7 +159,11 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
     let theme = state.theme;
 
     if layout.tiles.is_empty() {
-        let message = "No hay aplicaciones para mostrar";
+        let message = if state.filter.is_empty() {
+            "No hay aplicaciones para mostrar"
+        } else {
+            "Ninguna app coincide con el filtro"
+        };
         let x = area.width.saturating_sub(message.chars().count() as u16) / 2;
         put(buf, area, 0, x, area.height / 2, message, theme.dim());
         state.layout = layout;

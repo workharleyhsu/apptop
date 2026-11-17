@@ -28,8 +28,94 @@ pub enum Move {
     Last,
 }
 
+/// Criterio de orden dentro de cada sección.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortKey {
+    #[default]
+    Name,
+    Cpu,
+    Ram,
+}
+
+impl SortKey {
+    pub fn next(self) -> Self {
+        match self {
+            SortKey::Name => SortKey::Cpu,
+            SortKey::Cpu => SortKey::Ram,
+            SortKey::Ram => SortKey::Name,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SortKey::Name => "nombre",
+            SortKey::Cpu => "CPU",
+            SortKey::Ram => "RAM",
+        }
+    }
+
+    /// Interpreta el valor de configuración (`name`/`nombre`, `cpu`, `ram`).
+    pub fn parse(text: &str) -> Option<Self> {
+        match text.trim().to_lowercase().as_str() {
+            "name" | "nombre" => Some(SortKey::Name),
+            "cpu" => Some(SortKey::Cpu),
+            "ram" | "mem" | "memoria" => Some(SortKey::Ram),
+            _ => None,
+        }
+    }
+}
+
+/// Qué secciones se muestran.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Sections {
+    #[default]
+    All,
+    Apps,
+    Services,
+}
+
+impl Sections {
+    pub fn next(self) -> Self {
+        match self {
+            Sections::All => Sections::Apps,
+            Sections::Apps => Sections::Services,
+            Sections::Services => Sections::All,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Sections::All => "todo",
+            Sections::Apps => "apps",
+            Sections::Services => "servicios",
+        }
+    }
+
+    fn shows(self, kind: AppKind) -> bool {
+        match self {
+            Sections::All => true,
+            Sections::Apps => kind == AppKind::App,
+            Sections::Services => kind == AppKind::Service,
+        }
+    }
+}
+
+/// Modo de entrada del teclado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Mode {
+    #[default]
+    Normal,
+    /// Escribiendo el texto del filtro.
+    Filter,
+}
+
 pub struct State {
     pub view: View,
+    pub mode: Mode,
+    pub sort: SortKey,
+    pub sections: Sections,
+    /// Texto del filtro; vacío = sin filtro.
+    pub filter: String,
     /// Apps de la última muestra.
     pub apps: Vec<App>,
     /// Índices de `apps` en el orden en que se muestran.
@@ -49,6 +135,10 @@ impl State {
     pub fn new(theme: Theme) -> Self {
         Self {
             view: View::Grid,
+            mode: Mode::Normal,
+            sort: SortKey::default(),
+            sections: Sections::default(),
+            filter: String::new(),
             apps: Vec::new(),
             order: Vec::new(),
             selected: None,
@@ -65,12 +155,27 @@ impl State {
         self.reorder();
     }
 
-    /// Recalcula el orden de presentación: apps primero, luego servicios.
+    /// Recalcula qué apps se muestran y en qué orden: filtro de texto,
+    /// secciones visibles, y dentro de cada sección el criterio elegido.
+    /// Las apps van siempre antes que los servicios.
     pub fn reorder(&mut self) {
-        let mut order: Vec<usize> = (0..self.apps.len()).collect();
+        let needle = self.filter.trim().to_lowercase();
+        let mut order: Vec<usize> = (0..self.apps.len())
+            .filter(|i| {
+                let app = &self.apps[*i];
+                self.sections.shows(app.kind) && (needle.is_empty() || matches(app, &needle))
+            })
+            .collect();
+        let sort = self.sort;
         order.sort_by(|a, b| {
             let (a, b) = (&self.apps[*a], &self.apps[*b]);
-            (a.kind, a.name.to_lowercase(), &a.id).cmp(&(b.kind, b.name.to_lowercase(), &b.id))
+            let by_name = || (a.name.to_lowercase(), &a.id).cmp(&(b.name.to_lowercase(), &b.id));
+            let by_key = match sort {
+                SortKey::Name => std::cmp::Ordering::Equal,
+                SortKey::Cpu => b.cpu_pct.total_cmp(&a.cpu_pct),
+                SortKey::Ram => b.rss.cmp(&a.rss),
+            };
+            a.kind.cmp(&b.kind).then(by_key).then_with(by_name)
         });
         self.order = order;
         let still_there = self
@@ -80,6 +185,43 @@ impl State {
         if !still_there {
             self.selected = self.order.first().map(|i| self.apps[*i].id.clone());
         }
+    }
+
+    pub fn cycle_sort(&mut self) {
+        self.sort = self.sort.next();
+        self.reorder();
+    }
+
+    pub fn cycle_sections(&mut self) {
+        self.sections = self.sections.next();
+        self.reorder();
+    }
+
+    /// Empieza a escribir un filtro (conserva el texto anterior).
+    pub fn start_filter(&mut self) {
+        self.mode = Mode::Filter;
+    }
+
+    pub fn filter_push(&mut self, c: char) {
+        self.filter.push(c);
+        self.reorder();
+    }
+
+    pub fn filter_pop(&mut self) {
+        self.filter.pop();
+        self.reorder();
+    }
+
+    /// Termina de escribir y deja el filtro aplicado.
+    pub fn accept_filter(&mut self) {
+        self.mode = Mode::Normal;
+    }
+
+    /// Borra el filtro y vuelve al modo normal.
+    pub fn clear_filter(&mut self) {
+        self.mode = Mode::Normal;
+        self.filter.clear();
+        self.reorder();
     }
 
     /// Apps en orden de presentación.
@@ -178,6 +320,20 @@ impl State {
     }
 }
 
+/// ¿La app coincide con el texto (ya en minúsculas)? Busca en el nombre
+/// visible, el AppID y los nombres de sus procesos.
+fn matches(app: &App, needle: &str) -> bool {
+    app.name.to_lowercase().contains(needle)
+        || app
+            .app_id
+            .as_ref()
+            .is_some_and(|id| id.to_lowercase().contains(needle))
+        || app
+            .procs
+            .iter()
+            .any(|p| p.name.to_lowercase().contains(needle))
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -238,6 +394,113 @@ pub(crate) mod tests {
         s.layout = GridLayout::compute(&kinds, width, s.icon_size);
         s.layout.area = ratatui::layout::Rect::new(0, 0, width, height);
         s
+    }
+
+    fn names(s: &State) -> Vec<&str> {
+        s.visible().map(|a| a.name.as_str()).collect()
+    }
+
+    #[test]
+    fn sorts_within_each_section() {
+        let mut s = State::new(Theme::default());
+        s.set_apps(sample_apps());
+        s.cycle_sort();
+        assert_eq!(s.sort, SortKey::Cpu);
+        assert_eq!(
+            names(&s),
+            vec![
+                "Un nombre larguísimo de app",
+                "Firefox",
+                "Alacritty",
+                "pipewire",
+                "docker"
+            ]
+        );
+        s.cycle_sort();
+        assert_eq!(s.sort, SortKey::Ram);
+        assert_eq!(
+            names(&s),
+            vec![
+                "Firefox",
+                "Alacritty",
+                "Un nombre larguísimo de app",
+                "docker",
+                "pipewire"
+            ]
+        );
+        s.cycle_sort();
+        assert_eq!(s.sort, SortKey::Name);
+        assert_eq!(names(&s)[0], "Alacritty");
+    }
+
+    #[test]
+    fn filters_by_text_and_keeps_a_valid_selection() {
+        let mut s = State::new(Theme::default());
+        s.set_apps(sample_apps());
+        s.selected = Some("Service:docker".into());
+        s.start_filter();
+        assert_eq!(s.mode, Mode::Filter);
+        for c in "FIRE".chars() {
+            s.filter_push(c);
+        }
+        assert_eq!(names(&s), vec!["Firefox"]);
+        assert_eq!(s.selected_app().unwrap().name, "Firefox");
+        for _ in 0..4 {
+            s.filter_pop();
+        }
+        assert_eq!(names(&s).len(), 5, "filtro vacío = sin filtro");
+        s.filter_push('I');
+        s.filter_push('r');
+        assert_eq!(names(&s), vec!["Firefox", "pipewire"], "'ir' está en ambos");
+        s.accept_filter();
+        assert_eq!((s.mode, s.filter.as_str()), (Mode::Normal, "Ir"));
+        // El filtro sigue aplicado tras un refresco.
+        s.set_apps(sample_apps());
+        assert_eq!(names(&s).len(), 2);
+        s.clear_filter();
+        assert_eq!(names(&s).len(), 5);
+
+        s.filter_push('ñ');
+        assert!(names(&s).is_empty() && s.selected.is_none());
+    }
+
+    #[test]
+    fn filter_also_matches_process_names_and_app_ids() {
+        let mut s = State::new(Theme::default());
+        let mut browser = app("Navegador", AppKind::App, 0.0, 1);
+        browser.app_id = Some("org.mozilla.firefox".into());
+        let mut term = app("Terminal", AppKind::App, 0.0, 1);
+        term.procs
+            .push(crate::apps::group::tests::proc(1, 0, "/usr/bin/fish", "/"));
+        s.set_apps(vec![browser, term]);
+        s.filter = "mozilla".into();
+        s.reorder();
+        assert_eq!(names(&s), vec!["Navegador"]);
+        s.filter = "fish".into();
+        s.reorder();
+        assert_eq!(names(&s), vec!["Terminal"]);
+    }
+
+    #[test]
+    fn cycles_visible_sections() {
+        let mut s = State::new(Theme::default());
+        s.set_apps(sample_apps());
+        s.cycle_sections();
+        assert_eq!((s.sections, s.count(AppKind::Service)), (Sections::Apps, 0));
+        assert_eq!(names(&s).len(), 3);
+        s.cycle_sections();
+        assert_eq!(names(&s), vec!["docker", "pipewire"]);
+        assert_eq!(s.selected_app().unwrap().name, "docker");
+        s.cycle_sections();
+        assert_eq!(names(&s).len(), 5);
+    }
+
+    #[test]
+    fn parses_sort_keys() {
+        assert_eq!(SortKey::parse("CPU"), Some(SortKey::Cpu));
+        assert_eq!(SortKey::parse(" nombre "), Some(SortKey::Name));
+        assert_eq!(SortKey::parse("ram"), Some(SortKey::Ram));
+        assert_eq!(SortKey::parse("otro"), None);
     }
 
     #[test]

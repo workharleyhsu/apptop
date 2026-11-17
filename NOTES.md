@@ -90,3 +90,10 @@ Decisiones y problemas, por iteración.
 - `script` no está instalado: el smoke test interactivo se hace con un driver de pty en
   Python (fuera del repo) que manda teclas y verifica código de salida y secuencias.
 - La vista de detalle es todavía un título; se completa en la Fase 4.
+
+## Iteración 11 — orden, filtro, secciones
+- `s` cicla el orden (nombre → CPU → RAM) dentro de cada sección; las apps van siempre antes.
+- `/` entra en modo filtro: ahí toda letra es texto (incluida `q`); Enter lo deja aplicado,
+  Esc lo borra. Coincide con nombre, AppID o nombre de algún proceso.
+- `Tab` cicla secciones visibles: todo → solo apps → solo servicios.
+- La línea del filtro ocupa la última fila solo mientras hay filtro.

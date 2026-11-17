@@ -329,7 +329,7 @@ fn push(groups: &mut BTreeMap<String, App>, key: Key, p: ProcInfo) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::path::PathBuf;
 

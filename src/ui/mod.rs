@@ -14,12 +14,27 @@ use ratatui::{Frame, Terminal};
 use crate::icons::IconStore;
 
 pub use run::{run, RunOptions};
-pub use state::{State, View};
+pub use state::{Mode, Sections, SortKey, State, View};
 pub use theme::Theme;
 
 /// Dibuja un cuadro completo de la interfaz.
 pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
-    let area = frame.area();
+    let mut area = frame.area();
+    // Línea del filtro: visible mientras se escribe o si hay uno aplicado.
+    let filtering = state.mode == Mode::Filter || !state.filter.is_empty();
+    if state.view == View::Grid && filtering && area.height > 1 {
+        area.height -= 1;
+        let cursor = if state.mode == Mode::Filter {
+            "▏"
+        } else {
+            ""
+        };
+        let line = format!("/{}{cursor}", state.filter);
+        let (x, y, width) = (area.x, area.y + area.height, area.width as usize);
+        frame
+            .buffer_mut()
+            .set_stringn(x, y, line, width, state.theme.selected());
+    }
     match state.view {
         View::Grid => grid::draw(frame.buffer_mut(), area, state, store),
         View::Detail => detail::draw(frame.buffer_mut(), area, state, store),
@@ -74,6 +89,25 @@ mod tests {
         let text = render_to_text(40, 16, &mut state, &mut test_store());
         insta::assert_snapshot!(text);
         assert!(state.scroll > 0);
+    }
+
+    #[test]
+    fn filter_line_appears_while_typing_and_when_applied() {
+        let mut state = State::new(Theme::default());
+        state.set_apps(state::tests::sample_apps());
+        state.start_filter();
+        state.filter_push('f');
+        state.filter_push('i');
+        let text = render_to_text(60, 14, &mut state, &mut test_store());
+        assert_eq!(text.lines().last(), Some("/fi▏"));
+        assert!(text.contains("Firefox") && !text.contains("Alacritty"));
+        state.accept_filter();
+        let text = render_to_text(60, 14, &mut state, &mut test_store());
+        assert_eq!(text.lines().last(), Some("/fi"));
+        state.filter = "zzz".into();
+        state.reorder();
+        let text = render_to_text(60, 14, &mut state, &mut test_store());
+        assert!(text.contains("Ninguna app coincide"));
     }
 
     #[test]
