@@ -21,7 +21,7 @@
 
 ## Fase 4 — Vista de detalle
 - [x] Cabecera con icono grande, nombre, PIDs, uptime, usuario.
-- [ ] Árbol de procesos de la app con CPU, RAM, hilos y estado por proceso.
+- [x] Árbol de procesos de la app con CPU, RAM, hilos y estado por proceso.
 - [ ] Gráficos históricos de CPU y RAM (braille, últimos ~2 min).
 - [ ] Disco: lectura/escritura por segundo desde `/proc/<pid>/io`.
 - [ ] GPU/VRAM por proceso desde `/proc/<pid>/fdinfo` (claves `drm-engine-*`,

@@ -16,13 +16,13 @@ apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servi
 ⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠔⠁
 
 
+     PID  PROCESO                                  CPU%     RAM HILOS  ESTADO
+    4100  firefox                                   1.5    900M   120  S duerme
+    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S duerme
+    4222  └─ firefox                               97.2    250M    22  T pausado
 
 
 
 
 
-
-
-
-
-Esc volver  q salir
+↑↓/jk elegir proceso  Esc volver  q salir

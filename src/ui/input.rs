@@ -124,13 +124,45 @@ fn detail_key(state: &mut State, key: &KeyEvent) -> Outcome {
             state.back_to_grid();
             Outcome::Redraw
         }
-        _ => Outcome::Ignored,
+        code => {
+            let page = (state.tree.area.height as isize).max(1);
+            let delta = match code {
+                KeyCode::Up | KeyCode::Char('k') => -1,
+                KeyCode::Down | KeyCode::Char('j') => 1,
+                KeyCode::PageUp => -page,
+                KeyCode::PageDown => page,
+                KeyCode::Home | KeyCode::Char('g') => isize::MIN / 2,
+                KeyCode::End | KeyCode::Char('G') => isize::MAX / 2,
+                _ => return Outcome::Ignored,
+            };
+            state.move_proc_cursor(delta);
+            Outcome::Redraw
+        }
     }
 }
 
 pub fn handle_mouse(state: &mut State, mouse: &MouseEvent) -> Outcome {
-    if state.view != View::Grid {
-        return Outcome::Ignored;
+    if state.view == View::Detail {
+        return match mouse.kind {
+            MouseEventKind::ScrollDown => {
+                state.move_proc_cursor(1);
+                Outcome::Redraw
+            }
+            MouseEventKind::ScrollUp => {
+                state.move_proc_cursor(-1);
+                Outcome::Redraw
+            }
+            MouseEventKind::Down(MouseButton::Left) => {
+                match state.tree.hit(mouse.column, mouse.row) {
+                    Some(row) => {
+                        state.select_proc_row(row);
+                        Outcome::Redraw
+                    }
+                    None => Outcome::Ignored,
+                }
+            }
+            _ => Outcome::Ignored,
+        };
     }
     match mouse.kind {
         MouseEventKind::ScrollDown => {
@@ -204,6 +236,7 @@ mod tests {
         assert_eq!(s.view, View::Detail);
         // En detalle las flechas no mueven la selección de la grilla.
         assert_eq!(handle_event(&mut s, &key(KeyCode::Right)), Outcome::Ignored);
+        handle_event(&mut s, &key(KeyCode::Down));
         assert_eq!(handle_event(&mut s, &key(KeyCode::Esc)), Outcome::Redraw);
         assert_eq!((s.view, s.selected_index()), (View::Grid, Some(1)));
     }

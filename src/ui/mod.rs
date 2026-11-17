@@ -8,6 +8,7 @@ pub mod input;
 pub mod run;
 pub mod state;
 pub mod theme;
+pub mod tree;
 
 use ratatui::backend::TestBackend;
 use ratatui::layout::Rect;
@@ -172,6 +173,14 @@ mod tests {
             proc(4130, 4100, "/usr/lib64/firefox/firefox", cg),
             proc(4222, 4100, "/usr/lib64/firefox/firefox", cg),
         ];
+        procs[1].cmdline = vec![
+            "firefox".into(),
+            "-contentproc".into(),
+            "-isForBrowser".into(),
+            "tab".into(),
+        ];
+        procs[2].state = 'T';
+        procs[2].cpu_pct = 97.2;
         for (p, (start, threads, rss)) in
             procs
                 .iter_mut()
@@ -199,6 +208,21 @@ mod tests {
         let mut state = detail_state();
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         insta::assert_snapshot!(text);
+    }
+
+    #[test]
+    fn detail_tree_marks_the_selected_process_and_scrolls() {
+        let mut state = detail_state();
+        state.move_proc_cursor(2);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert!(text.contains("▶   4130  ├─ firefox -contentproc"), "{text}");
+        assert!(text.contains("T pausado"), "{text}");
+        // Con poco alto el árbol se desplaza para mostrar la fila elegida.
+        state.move_proc_cursor(1);
+        let text = render_to_text(80, 18, &mut state, &mut test_store());
+        assert!(text.contains("▶   4222"), "{text}");
+        assert_eq!(state.tree.scroll, 1);
+        assert_eq!(state.tree.len, 3);
     }
 
     #[test]

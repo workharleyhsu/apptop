@@ -11,6 +11,7 @@ use super::bars::write_spans;
 use super::format::{human_bytes, human_duration};
 use super::grid::icon_for;
 use super::state::State;
+use super::tree;
 
 /// Separación entre el icono y el bloque de datos.
 const GAP: u16 = 2;
@@ -165,6 +166,13 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
     };
     let header = Rect::new(area.x, area.y, area.width, area.height.min(HEADER_HEIGHT));
     draw_header(buf, header, &app, state, store);
+
+    // Debajo, separado por una línea en blanco, el árbol de procesos.
+    let used = HEADER_HEIGHT + 1;
+    if area.height > used + 1 {
+        let tree_area = Rect::new(area.x, area.y + used, area.width, area.height - used);
+        tree::draw(buf, tree_area, &app, state);
+    }
 }
 
 #[cfg(test)]

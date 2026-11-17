@@ -146,7 +146,11 @@ pub fn hints(state: &State) -> Vec<Hint> {
             hints.push(Hint::new("q", "salir", 9));
             hints
         }
-        View::Detail => vec![Hint::new("Esc", "volver", 8), Hint::new("q", "salir", 9)],
+        View::Detail => vec![
+            Hint::new("↑↓/jk", "elegir proceso", 3),
+            Hint::new("Esc", "volver", 8),
+            Hint::new("q", "salir", 9),
+        ],
     }
 }
 
@@ -218,7 +222,7 @@ mod tests {
         assert_eq!(keys(&s)[0], "Enter");
         s.mode = Mode::Normal;
         s.view = View::Detail;
-        assert_eq!(keys(&s), vec!["Esc", "q"]);
+        assert_eq!(keys(&s), vec!["↑↓/jk", "Esc", "q"]);
     }
 
     #[test]

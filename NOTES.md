@@ -118,3 +118,10 @@ Decisiones y problemas, por iteración.
   `nix::unistd::User::from_uid`, cacheado por uid (respeta NSS, a diferencia de leer passwd).
 - PSS ilegible (procesos ajenos) → se suman solo los legibles; ninguno legible → `n/d`.
 - `--snapshot --app <nombre>` renderiza el detalle (toma una segunda muestra con detalle).
+
+## Iteración 15 — árbol de procesos
+- Raíces = procesos cuyo padre no pertenece a la app; hermanos por pid; tolera ciclos.
+- Cursor de proceso: arranca en "toda la app" (sin fila elegida); ↓ baja al primer proceso y
+  ↑ desde el primero vuelve a "toda la app". Lo usarán las acciones de la Fase 5.
+- Limitación conocida: un auxiliar reparentado con otro ejecutable (p. ej. `crashhelper` de
+  Firefox lanzado desde una terminal) queda en el grupo de la terminal.

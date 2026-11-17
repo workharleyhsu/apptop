@@ -10,6 +10,7 @@ use crate::icons::GRID_ICON;
 
 use super::grid::GridLayout;
 use super::theme::Theme;
+use super::tree::{tree_rows, TreeView};
 
 /// Pantalla que se está mostrando.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -140,6 +141,10 @@ pub struct State {
     pub ticks_per_second: f64,
     /// Mediciones de la app abierta en detalle.
     pub detail: Option<DetailData>,
+    /// Proceso elegido en el árbol del detalle; `None` = toda la app.
+    pub proc_selected: Option<i32>,
+    /// Dónde quedó dibujado el árbol de procesos.
+    pub tree: TreeView,
     /// Nombres de usuario ya resueltos (uid → nombre).
     pub users: HashMap<u32, String>,
     /// Índices de `apps` en el orden en que se muestran.
@@ -168,6 +173,8 @@ impl State {
             system: SystemStats::default(),
             ticks_per_second: 100.0,
             detail: None,
+            proc_selected: None,
+            tree: TreeView::default(),
             users: HashMap::new(),
             order: Vec::new(),
             selected: None,
@@ -223,6 +230,15 @@ impl State {
             .is_some_and(|id| self.order.iter().any(|i| &self.apps[*i].id == id));
         if !still_there {
             self.selected = self.order.first().map(|i| self.apps[*i].id.clone());
+        }
+        // El proceso elegido en el árbol pudo haber terminado.
+        if let Some(pid) = self.proc_selected {
+            let alive = self
+                .selected_app()
+                .is_some_and(|a| a.procs.iter().any(|p| p.pid == pid));
+            if !alive {
+                self.proc_selected = None;
+            }
         }
     }
 
@@ -385,10 +401,41 @@ impl State {
             .clone()
     }
 
+    /// Mueve el cursor del árbol de procesos `delta` filas. Por encima de la
+    /// primera fila no hay proceso elegido: las acciones valen para toda la app.
+    pub fn move_proc_cursor(&mut self, delta: isize) {
+        let Some(app) = self.selected_app() else {
+            return;
+        };
+        let rows = tree_rows(app);
+        if rows.is_empty() {
+            self.proc_selected = None;
+            return;
+        }
+        // -1 representa "toda la app".
+        let current = self
+            .proc_selected
+            .and_then(|pid| rows.iter().position(|r| r.pid == pid))
+            .map_or(-1, |i| i as isize);
+        let target = current
+            .saturating_add(delta)
+            .clamp(-1, rows.len() as isize - 1);
+        self.proc_selected = (target >= 0).then(|| rows[target as usize].pid);
+    }
+
+    /// Elige la fila `index` del árbol (clic del mouse).
+    pub fn select_proc_row(&mut self, index: usize) {
+        if let Some(app) = self.selected_app() {
+            self.proc_selected = tree_rows(app).get(index).map(|r| r.pid);
+        }
+    }
+
     /// Entra al detalle de la app seleccionada, si hay alguna.
     pub fn enter_detail(&mut self) {
         if self.selected_app().is_some() {
             self.view = View::Detail;
+            self.proc_selected = None;
+            self.tree = TreeView::default();
         }
     }
 
@@ -571,6 +618,35 @@ pub(crate) mod tests {
         assert_eq!(s.selected_app().unwrap().name, "docker");
         s.cycle_sections();
         assert_eq!(names(&s).len(), 5);
+    }
+
+    #[test]
+    fn process_cursor_moves_through_the_tree_and_back_to_the_whole_app() {
+        use crate::apps::group::tests::proc;
+        let mut s = State::new(Theme::default());
+        let mut a = app("x", AppKind::App, 0.0, 1);
+        a.procs = vec![
+            proc(10, 1, "/b/a", "/"),
+            proc(11, 10, "/b/a", "/"),
+            proc(12, 10, "/b/a", "/"),
+        ];
+        s.set_apps(vec![a.clone()]);
+        s.enter_detail();
+        assert_eq!(s.proc_selected, None);
+        s.move_proc_cursor(1);
+        assert_eq!(s.proc_selected, Some(10));
+        s.move_proc_cursor(5);
+        assert_eq!(s.proc_selected, Some(12), "se detiene en la última fila");
+        s.move_proc_cursor(-1);
+        assert_eq!(s.proc_selected, Some(11));
+        s.select_proc_row(2);
+        assert_eq!(s.proc_selected, Some(12));
+        // El proceso elegido muere en el siguiente refresco.
+        a.procs.pop();
+        s.set_apps(vec![a]);
+        assert_eq!(s.proc_selected, None);
+        s.move_proc_cursor(-3);
+        assert_eq!(s.proc_selected, None);
     }
 
     #[test]
