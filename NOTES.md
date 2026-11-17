@@ -364,7 +364,7 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
   passphrase y no hay agente. Para eso está `apptop --explain <nombre>`, que muestra cgroup,
   unidad, `.desktop` encontrado y resultado.
 
-## Pendiente de publicar — dos ajustes vistos en CachyOS (KDE Plasma)
+## v0.1.2 — dos ajustes vistos en CachyOS (KDE Plasma)
 - Con acceso SSH se confirmó el diagnóstico de v0.1.1: Steam era
   `app-steam@autostart.service` y Brave/Dolphin `app-<id>@<hash>.service`. Con 0.1.1 ya
   salen en apps.
