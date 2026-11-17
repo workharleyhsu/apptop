@@ -151,3 +151,15 @@ Decisiones y problemas, por iteración.
   fixture con el formato de la documentación del kernel; i915 se verificó en vivo
   (Firefox reproduciendo vídeo: "21% video").
 - Estados: tasa, "midiendo…", "sin uso" (legible y sin DRM) y `n/d (sin permiso)`.
+
+## Iteración 19 — red por app (aprox.)
+- Viable sin root: inodos `socket:[N]` de `/proc/<pid>/fd` cruzados con el volcado TCP de
+  netlink `sock_diag` (INET_DIAG_INFO → `tcp_info.bytes_acked` / `bytes_received`).
+  Crates: `netlink-packet-sock-diag` (feature `rich_nlas`), `netlink-sys`, `netlink-packet-core`.
+- Por qué es "aprox." (así se etiqueta en la UI): solo TCP (UDP/QUIC no tienen contadores en
+  sock_diag → vídeo por HTTP/3 no se ve), se pierde lo de conexiones que abren y cierran
+  entre dos muestras, y "subida" son bytes confirmados por el otro extremo.
+- Solo para procesos propios (`fd` ajeno no es legible) → `n/d (sin permiso)`.
+- Verificado con el kernel real: test con conexión TCP local propia, y en vivo una
+  transferencia local de ~4 MB/s se midió como ↓3.8M/s ↑3.8M/s.
+- De paso: bloque de datos del detalle con etiquetas de 11 columnas y mínimo de 32.

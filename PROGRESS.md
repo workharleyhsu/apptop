@@ -26,7 +26,7 @@
 - [x] Disco: lectura/escritura por segundo desde `/proc/<pid>/io`.
 - [x] GPU/VRAM por proceso desde `/proc/<pid>/fdinfo` (claves `drm-engine-*`,
       `drm-memory-*`; objetivo principal: AMD). Deduplicar por `drm-client-id`.
-- [ ] Red por app: aproximación sin root usando sockets de la app (netlink `sock_diag`
+- [x] Red por app: aproximación sin root usando sockets de la app (netlink `sock_diag`
       + `/proc/<pid>/fd`). Etiquetar como "aprox." en la UI. Si no es viable, `n/d`
       y documentar el motivo en `NOTES.md`.
 - [ ] `Esc` vuelve a la grilla conservando la selección.

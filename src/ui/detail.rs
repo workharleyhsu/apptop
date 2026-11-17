@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 
 use crate::apps::{App, AppKind};
-use crate::collect::{GpuReading, GpuStats, IoReading};
+use crate::collect::{GpuReading, GpuStats, IoReading, NetReading};
 use crate::icons::{IconStore, DETAIL_ICON};
 
 use super::bars::write_spans;
@@ -20,7 +20,7 @@ use super::tree;
 const GRAPH_MIN: u16 = 20;
 const GRAPH_MAX: u16 = 60;
 const INFO_COMFORT: u16 = 46;
-const INFO_MIN: u16 = 30;
+const INFO_MIN: u16 = 32;
 
 /// Ancho del bloque de gráficos para un ancho total, o 0 si no entra.
 pub fn graph_width(total: u16) -> u16 {
@@ -39,7 +39,7 @@ pub fn graph_width(total: u16) -> u16 {
 /// Separación entre el icono y el bloque de datos.
 const GAP: u16 = 2;
 /// Ancho de la columna de etiquetas del bloque de datos.
-const LABEL_WIDTH: usize = 10;
+const LABEL_WIDTH: usize = 11;
 
 /// Segundos que lleva en ejecución el proceso más antiguo de la app.
 pub fn app_uptime(app: &App, system_uptime: Option<f64>, ticks_per_second: f64) -> Option<f64> {
@@ -129,6 +129,22 @@ fn gpu_text(reading: Option<&GpuReading>) -> String {
     }
 }
 
+/// Texto de la fila de red: bajada y subida TCP.
+fn net_text(reading: Option<NetReading>) -> String {
+    match reading {
+        Some(NetReading::Rate(rate)) if rate.sockets == 0 => "sin conexiones TCP".to_string(),
+        Some(NetReading::Rate(rate)) => {
+            format!(
+                "↓{} ↑{}",
+                human_rate(rate.down_bps),
+                human_rate(rate.up_bps)
+            )
+        }
+        Some(NetReading::Unavailable) => "n/d (sin permiso)".to_string(),
+        Some(NetReading::Warming) | None => "midiendo…".to_string(),
+    }
+}
+
 fn kind_label(app: &App) -> String {
     let kind = match app.kind {
         AppKind::App => "aplicación",
@@ -211,6 +227,12 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
         (
             "GPU",
             gpu_text(state.detail_of_selected().map(|d| &d.gpu)),
+            theme.text(),
+        ),
+        // Solo TCP y sin lo de conexiones efímeras: la etiqueta lo avisa.
+        (
+            "Red aprox.",
+            net_text(state.detail_of_selected().map(|d| d.net)),
             theme.text(),
         ),
     ];
@@ -358,12 +380,12 @@ mod tests {
     fn graphs_get_the_spare_width_and_disappear_when_too_narrow() {
         assert_eq!(
             graph_width(80),
-            22,
+            20,
             "a 80 columnas se achica el bloque de datos"
         );
         assert_eq!(graph_width(100), 26);
         assert_eq!(graph_width(140), 60, "nunca más que el máximo");
-        assert_eq!(graph_width(77), 0);
+        assert_eq!(graph_width(79), 0);
         assert_eq!(graph_width(10), 0);
     }
 
@@ -408,6 +430,23 @@ mod tests {
             "n/d (sin permiso)"
         );
         assert_eq!(gpu_text(None), "midiendo…");
+    }
+
+    #[test]
+    fn net_row_covers_every_reading() {
+        use crate::collect::NetRate;
+        let rate = NetRate {
+            down_bps: 12_288.0,
+            up_bps: 3174.0,
+            sockets: 4,
+        };
+        assert_eq!(net_text(Some(NetReading::Rate(rate))), "↓12.0K/s ↑3.1K/s");
+        assert_eq!(
+            net_text(Some(NetReading::Rate(NetRate::default()))),
+            "sin conexiones TCP"
+        );
+        assert_eq!(net_text(Some(NetReading::Unavailable)), "n/d (sin permiso)");
+        assert_eq!(net_text(None), "midiendo…");
     }
 
     #[test]

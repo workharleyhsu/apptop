@@ -212,6 +212,11 @@ mod tests {
                 driver: "amdgpu".into(),
                 clients: 2,
             }),
+            net: crate::collect::NetReading::Rate(crate::collect::NetRate {
+                down_bps: 840_000.0,
+                up_bps: 52_000.0,
+                sockets: 9,
+            }),
         });
         // Historial de 90 s: CPU en rampa con un pico, RAM creciendo.
         for t in 0..90 {
@@ -261,7 +266,7 @@ mod tests {
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         assert!(text.contains("PSS n/d"), "{text}");
         assert!(
-            text.contains("Usuario   n/d") && text.contains("Activa    n/d"),
+            text.contains("Usuario    n/d") && text.contains("Activa     n/d"),
             "{text}"
         );
 
