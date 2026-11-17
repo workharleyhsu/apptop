@@ -4,7 +4,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 
-use super::state::{ActionRequest, State};
+use super::state::{ActionRequest, NiceRequest, State};
 use super::theme::Theme;
 
 /// Dibuja un cuadro centrado con borde, título y líneas de texto. El
@@ -81,6 +81,53 @@ pub fn draw_confirm(buf: &mut Buffer, area: Rect, state: &State, request: &Actio
     lines.push((String::new(), theme.text()));
     lines.push(("[s] sí     [n] no".to_string(), theme.selected()));
     draw_box(buf, area, theme, request.title(), &lines);
+}
+
+/// Selector de prioridad: valor actual, valor nuevo y una regla de -20 a 19.
+pub fn draw_nice(buf: &mut Buffer, area: Rect, state: &State, request: &NiceRequest) {
+    let theme = state.theme;
+    let current = match request.current {
+        (low, high) if low == high => format!("Prioridad actual: {low}"),
+        (low, high) => format!("Prioridad actual: entre {low} y {high}"),
+    };
+    // Regla de 40 posiciones (-20..=19) con una marca en el valor elegido.
+    let position = (request.value + 20).clamp(0, 39) as usize;
+    let ruler: String = (0..40)
+        .map(|i| if i == position { '●' } else { '─' })
+        .collect();
+    let raising = (request.value as i64) < request.current.0;
+    let mut lines = vec![
+        (
+            format!("{} · {}", request.label, affected(request.targets.len())),
+            theme.text().add_modifier(Modifier::BOLD),
+        ),
+        (current, theme.text()),
+        (String::new(), theme.text()),
+        (format!("Nueva: {:>3}", request.value), theme.selected()),
+        (ruler, Style::default().fg(theme.accent())),
+        (
+            "-20 más prioridad               menos 19".to_string(),
+            theme.dim(),
+        ),
+    ];
+    if raising {
+        lines.push((
+            "Subir la prioridad requiere root o CAP_SYS_NICE".to_string(),
+            Style::default().fg(theme.load(50.0)),
+        ));
+    } else {
+        lines.push((String::new(), theme.text()));
+    }
+    lines.push((
+        "[←/→] cambiar   [Enter] aplicar   [Esc] cancelar".to_string(),
+        theme.dim(),
+    ));
+    let title = if request.single_process {
+        "Prioridad del proceso"
+    } else {
+        "Prioridad de la aplicación"
+    };
+    draw_box(buf, area, theme, title, &lines);
 }
 
 #[cfg(test)]

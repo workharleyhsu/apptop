@@ -189,3 +189,12 @@ Decisiones y problemas, por iteración.
   "pausar" o "reanudar" según corresponda y la grilla marca la app con "‖ pausada".
 - SIGSTOP nunca va a apptop ni a sus ancestros; si no queda a quién enviarla, aviso de error.
 - Verificado con `sleep` propios en un scope propio: S S S → T T T → S S S.
+
+## Iteración 23 — prioridad (nice)
+- `n` abre un selector (-20..19, ←/→ o +/-, Enter aplica). `setpriority` vía `libc` (nix no
+  lo envuelve). En Linux nice es por hilo: se recorre `/proc/<pid>/task/*`, si no solo
+  cambiaría el hilo principal (como hace `renice`).
+- Mensajes distintos por errno: EACCES → "subir la prioridad (bajar nice) requiere root o
+  CAP_SYS_NICE"; EPERM → "son de otro usuario". El selector avisa antes de aplicar si el
+  valor elegido sube la prioridad.
+- Verificado con `sleep` propios: 0 → 5 aplicado a los 3; 5 → 0 rechazado con el mensaje.

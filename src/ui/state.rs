@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use std::collections::HashMap;
 
-use crate::actions::{filter_targets, Signal, Target};
+use crate::actions::{filter_targets, Signal, Target, NICE_MAX, NICE_MIN};
 use crate::apps::{App, AppKind, DetailData, Sample};
 use crate::collect::SystemStats;
 use crate::icons::GRID_ICON;
@@ -117,6 +117,20 @@ pub enum Mode {
     Filter,
     /// Esperando confirmación (s/n) de una acción.
     Confirm(ActionRequest),
+    /// Eligiendo el valor de `nice` a aplicar.
+    Nice(NiceRequest),
+}
+
+/// Un cambio de prioridad en preparación o listo para aplicarse.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NiceRequest {
+    pub targets: Vec<Target>,
+    pub label: String,
+    pub single_process: bool,
+    /// Valores actuales más bajo y más alto entre los procesos.
+    pub current: (i64, i64),
+    /// Valor elegido.
+    pub value: i32,
 }
 
 /// Una señal lista para enviarse a un conjunto de procesos.
@@ -194,6 +208,8 @@ pub struct State {
     pub lineage: Vec<i32>,
     /// Acción confirmada que el bucle principal debe ejecutar.
     pub pending: Option<ActionRequest>,
+    /// Cambio de prioridad confirmado que el bucle debe aplicar.
+    pub pending_nice: Option<NiceRequest>,
     pub message: Option<Message>,
     /// Proceso elegido en el árbol del detalle; `None` = toda la app.
     pub proc_selected: Option<i32>,
@@ -229,6 +245,7 @@ impl State {
             detail: None,
             lineage: Vec::new(),
             pending: None,
+            pending_nice: None,
             message: None,
             history: HashMap::new(),
             clock: 0.0,
@@ -551,6 +568,50 @@ impl State {
         };
         if let Some(request) = self.build_request(signal) {
             self.pending = Some(request);
+        }
+    }
+
+    /// Abre el selector de prioridad para el alcance actual.
+    pub fn ask_nice(&mut self) {
+        let Some((targets, label, single_process)) = self.action_scope() else {
+            return;
+        };
+        let Some(app) = self.selected_app() else {
+            return;
+        };
+        let values: Vec<i64> = app
+            .procs
+            .iter()
+            .filter(|p| targets.iter().any(|t| t.pid == p.pid))
+            .map(|p| p.nice)
+            .collect();
+        let (Some(low), Some(high)) = (values.iter().min(), values.iter().max()) else {
+            return;
+        };
+        self.mode = Mode::Nice(NiceRequest {
+            targets,
+            label,
+            single_process,
+            current: (*low, *high),
+            value: (*high as i32).clamp(NICE_MIN, NICE_MAX),
+        });
+    }
+
+    /// Cambia el valor elegido en el selector de prioridad.
+    pub fn nice_adjust(&mut self, delta: i32) {
+        if let Mode::Nice(request) = &mut self.mode {
+            request.value = (request.value + delta).clamp(NICE_MIN, NICE_MAX);
+        }
+    }
+
+    /// Cierra el selector; con `apply` el cambio queda listo para ejecutar.
+    pub fn nice_finish(&mut self, apply: bool) {
+        if let Mode::Nice(request) = std::mem::take(&mut self.mode) {
+            if apply {
+                self.pending_nice = Some(request);
+            } else {
+                self.notify("Cancelado", false);
+            }
         }
     }
 
@@ -1025,6 +1086,43 @@ pub(crate) mod tests {
         assert!(s.pending.is_none());
         assert!(s.current_message().unwrap().is_error);
         assert!(!app_is_paused(&app("vacía", AppKind::App, 0.0, 0)));
+    }
+
+    #[test]
+    fn nice_dialog_starts_at_the_current_value_and_clamps() {
+        let mut s = state_with_procs();
+        s.apps[0].procs[0].nice = 0;
+        s.apps[0].procs[1].nice = 5;
+        s.apps[0].procs[2].nice = -3;
+        s.ask_nice();
+        let Mode::Nice(request) = s.mode.clone() else {
+            panic!("debe abrir el selector");
+        };
+        assert_eq!(
+            (request.current, request.value, request.targets.len()),
+            ((-3, 5), 5, 3)
+        );
+        s.nice_adjust(1);
+        s.nice_adjust(100);
+        assert!(matches!(&s.mode, Mode::Nice(r) if r.value == 19));
+        s.nice_adjust(-100);
+        assert!(matches!(&s.mode, Mode::Nice(r) if r.value == -20));
+        s.nice_adjust(30);
+        assert!(s.pending_nice.is_none(), "nada se aplica hasta Enter");
+        s.nice_finish(true);
+        let applied = s.pending_nice.take().unwrap();
+        assert_eq!((applied.value, applied.label.as_str()), (10, "Editor"));
+
+        s.ask_nice();
+        s.nice_finish(false);
+        assert!(s.pending_nice.is_none() && s.mode == Mode::Normal);
+        // En el detalle, sobre un solo proceso.
+        s.enter_detail();
+        s.proc_selected = Some(12);
+        s.ask_nice();
+        assert!(
+            matches!(&s.mode, Mode::Nice(r) if r.single_process && r.current == (-3, -3) && r.value == -3)
+        );
     }
 
     #[test]

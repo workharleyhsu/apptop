@@ -8,7 +8,7 @@ use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture};
 use ratatui::crossterm::execute;
 use ratatui::DefaultTerminal;
 
-use crate::actions::{ancestry, send_signal};
+use crate::actions::{ancestry, send_signal, set_nice};
 use crate::apps::Sampler;
 use crate::icons::IconStore;
 
@@ -79,6 +79,15 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
                     report.is_problem(),
                 );
                 // Refresca pronto para reflejar el efecto de la señal.
+                next_sample = Instant::now() + Duration::from_millis(150);
+                dirty = true;
+            }
+            if let Some(request) = state.pending_nice.take() {
+                let report = set_nice(&request.targets, request.value);
+                state.notify(
+                    report.summary(request.value, &request.label),
+                    report.is_problem(),
+                );
                 next_sample = Instant::now() + Duration::from_millis(150);
                 dirty = true;
             }

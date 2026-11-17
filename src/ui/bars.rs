@@ -137,6 +137,13 @@ pub fn hints(state: &State) -> Vec<Hint> {
                 Hint::new("n/Esc", "cancelar", 9),
             ]
         }
+        Mode::Nice(_) => {
+            return vec![
+                Hint::new("←/→", "cambiar", 5),
+                Hint::new("Enter", "aplicar", 9),
+                Hint::new("Esc", "cancelar", 9),
+            ]
+        }
         Mode::Normal => {}
     }
     match state.view {
@@ -150,6 +157,7 @@ pub fn hints(state: &State) -> Vec<Hint> {
                 Hint::new("x", "cerrar", 7),
                 Hint::new("K", "matar", 6),
                 Hint::new("p", pause_label(state), 5),
+                Hint::new("n", "prioridad", 3),
                 Hint::new("+/-", "refresco", 2),
             ];
             if !state.filter.is_empty() {
@@ -163,6 +171,7 @@ pub fn hints(state: &State) -> Vec<Hint> {
             Hint::new("x", "cerrar", 6),
             Hint::new("K", "matar", 5),
             Hint::new("p", pause_label(state), 4),
+            Hint::new("n", "prioridad", 4),
             Hint::new("Esc", "volver", 8),
             Hint::new("q", "salir", 9),
         ],
@@ -257,7 +266,7 @@ mod tests {
         assert_eq!(keys(&s)[0], "Enter");
         s.mode = Mode::Normal;
         s.view = View::Detail;
-        assert_eq!(keys(&s), vec!["↑↓/jk", "x", "K", "p", "Esc", "q"]);
+        assert_eq!(keys(&s), vec!["↑↓/jk", "x", "K", "p", "n", "Esc", "q"]);
     }
 
     #[test]

@@ -8,6 +8,7 @@ clap = { version = "4", features = ["derive"] }
 freedesktop-desktop-entry = { version = "0.8", default-features = false }
 freedesktop-icons = "0.4"
 image = { version = "0.25", default-features = false, features = ["png"] }
+libc = "0.2.191"
 netlink-packet-core = "0.9.0"
 netlink-packet-sock-diag = { version = "0.5", features = ["rich_nlas"] }
 netlink-sys = "0.9.0"

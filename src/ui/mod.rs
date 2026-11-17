@@ -59,8 +59,10 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
         View::Detail => detail::draw(buf, body, state, store),
     }
     // Los diálogos van encima de la vista.
-    if let Mode::Confirm(request) = &state.mode {
-        dialog::draw_confirm(buf, body, state, request);
+    match &state.mode {
+        Mode::Confirm(request) => dialog::draw_confirm(buf, body, state, request),
+        Mode::Nice(request) => dialog::draw_nice(buf, body, state, request),
+        Mode::Normal | Mode::Filter => {}
     }
 }
 
@@ -307,6 +309,20 @@ mod tests {
         assert!(text.contains("¿Enviar SIGTERM a Firefox?"));
         assert!(text.contains("2 procesos afectados"));
         assert!(text.contains("[s] sí     [n] no"));
+    }
+
+    #[test]
+    fn nice_dialog_snapshot_warns_when_raising_priority() {
+        let mut state = detail_state();
+        state.ask_nice();
+        state.nice_adjust(-4);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        insta::assert_snapshot!(text);
+        assert!(text.contains("Nueva:  -4"));
+        assert!(text.contains("requiere root o CAP_SYS_NICE"));
+        state.nice_adjust(9);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert!(text.contains("Nueva:   5") && !text.contains("requiere root"));
     }
 
     #[test]

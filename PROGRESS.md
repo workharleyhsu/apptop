@@ -34,7 +34,7 @@
 ## Fase 5 — Acciones
 - [x] Cerrar app (SIGTERM a todo el grupo) y matar (SIGKILL), con confirmación.
 - [x] Pausar/reanudar (SIGSTOP/SIGCONT).
-- [ ] Cambiar prioridad (nice), informando con claridad si falta permiso.
+- [x] Cambiar prioridad (nice), informando con claridad si falta permiso.
 - [ ] Menú para elegir señal, y aplicar cualquier acción a un solo subproceso del árbol.
 - [ ] Tests de acciones usando solo procesos `sleep` lanzados por el test.
 

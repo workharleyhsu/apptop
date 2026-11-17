@@ -82,6 +82,7 @@ dependencies = [
  "freedesktop-icons",
  "image",
  "insta",
+ "libc",
  "netlink-packet-core",
  "netlink-packet-sock-diag",
  "netlink-sys",

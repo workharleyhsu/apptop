@@ -39,6 +39,22 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
             state.answer_confirm(yes);
             return Outcome::Redraw;
         }
+        Mode::Nice(_) => {
+            match key.code {
+                KeyCode::Left | KeyCode::Down | KeyCode::Char('-' | 'h' | 'j') => {
+                    state.nice_adjust(-1)
+                }
+                KeyCode::Right | KeyCode::Up | KeyCode::Char('+' | '=' | 'l' | 'k') => {
+                    state.nice_adjust(1)
+                }
+                KeyCode::PageDown => state.nice_adjust(-5),
+                KeyCode::PageUp => state.nice_adjust(5),
+                KeyCode::Enter => state.nice_finish(true),
+                KeyCode::Esc | KeyCode::Char('q' | 'n') => state.nice_finish(false),
+                _ => return Outcome::Ignored,
+            }
+            return Outcome::Redraw;
+        }
         Mode::Normal => {}
     }
     // Acciones sobre la app seleccionada (o el proceso elegido en el detalle).
@@ -53,6 +69,10 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
         }
         KeyCode::Char('p') => {
             state.toggle_pause();
+            return Outcome::Redraw;
+        }
+        KeyCode::Char('n') => {
+            state.ask_nice();
             return Outcome::Redraw;
         }
         _ => {}
@@ -469,6 +489,37 @@ mod tests {
         handle_event(&mut s, &key(KeyCode::Char('/')));
         handle_event(&mut s, &key(KeyCode::Char('p')));
         assert!(s.pending.is_none() && s.filter == "p");
+    }
+
+    #[test]
+    fn n_opens_the_priority_picker_and_enter_applies() {
+        use crate::apps::group::tests::proc;
+        let mut s = laid_out(2, 0, 80, 24);
+        s.apps[0].procs = vec![proc(500, 1, "/b/a", "/")];
+        handle_event(&mut s, &key(KeyCode::Char('n')));
+        assert!(matches!(&s.mode, Mode::Nice(r) if r.value == 0));
+        for code in [
+            KeyCode::Right,
+            KeyCode::Char('+'),
+            KeyCode::Up,
+            KeyCode::PageUp,
+            KeyCode::Left,
+        ] {
+            assert_eq!(handle_event(&mut s, &key(code)), Outcome::Redraw);
+        }
+        assert!(matches!(&s.mode, Mode::Nice(r) if r.value == 7));
+        // '+' y '-' acá cambian la prioridad, no el intervalo de refresco.
+        assert_eq!(s.refresh, std::time::Duration::from_secs(1));
+        assert_eq!(
+            handle_event(&mut s, &key(KeyCode::Char('x'))),
+            Outcome::Ignored
+        );
+        handle_event(&mut s, &key(KeyCode::Enter));
+        assert_eq!(s.pending_nice.take().unwrap().value, 7);
+
+        handle_event(&mut s, &key(KeyCode::Char('n')));
+        handle_event(&mut s, &key(KeyCode::Esc));
+        assert!(s.pending_nice.is_none() && s.mode == Mode::Normal);
     }
 
     #[test]
