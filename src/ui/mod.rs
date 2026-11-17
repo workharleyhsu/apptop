@@ -1,5 +1,6 @@
 //! Interfaz de terminal: grilla, vista de detalle y diálogos.
 
+pub mod bars;
 pub mod detail;
 pub mod format;
 pub mod grid;
@@ -9,6 +10,7 @@ pub mod state;
 pub mod theme;
 
 use ratatui::backend::TestBackend;
+use ratatui::layout::Rect;
 use ratatui::{Frame, Terminal};
 
 use crate::icons::IconStore;
@@ -17,27 +19,41 @@ pub use run::{run, RunOptions};
 pub use state::{Mode, Sections, SortKey, State, View};
 pub use theme::Theme;
 
-/// Dibuja un cuadro completo de la interfaz.
+/// Dibuja un cuadro completo: barra superior, vista actual, línea de
+/// filtro (si hay) y barra de atajos.
 pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
-    let mut area = frame.area();
+    let full = frame.area();
+    let buf = frame.buffer_mut();
+    let row = |y: u16| Rect::new(full.x, y, full.width, 1);
+    let mut body = full;
+
+    // Con muy poco alto se sacrifican las barras antes que el contenido.
+    if full.height >= 3 {
+        bars::draw_top(buf, row(full.y), state);
+        bars::draw_bottom(buf, row(full.y + full.height - 1), state);
+        body = Rect::new(full.x, full.y + 1, full.width, full.height - 2);
+    }
     // Línea del filtro: visible mientras se escribe o si hay uno aplicado.
     let filtering = state.mode == Mode::Filter || !state.filter.is_empty();
-    if state.view == View::Grid && filtering && area.height > 1 {
-        area.height -= 1;
+    if state.view == View::Grid && filtering && body.height > 1 {
+        body.height -= 1;
         let cursor = if state.mode == Mode::Filter {
             "▏"
         } else {
             ""
         };
         let line = format!("/{}{cursor}", state.filter);
-        let (x, y, width) = (area.x, area.y + area.height, area.width as usize);
-        frame
-            .buffer_mut()
-            .set_stringn(x, y, line, width, state.theme.selected());
+        buf.set_stringn(
+            body.x,
+            body.y + body.height,
+            line,
+            body.width as usize,
+            state.theme.selected(),
+        );
     }
     match state.view {
-        View::Grid => grid::draw(frame.buffer_mut(), area, state, store),
-        View::Detail => detail::draw(frame.buffer_mut(), area, state, store),
+        View::Grid => grid::draw(buf, body, state, store),
+        View::Detail => detail::draw(buf, body, state, store),
     }
 }
 
@@ -76,6 +92,13 @@ mod tests {
     fn grid_snapshot_80x24() {
         let mut state = State::new(Theme::default());
         state.set_apps(state::tests::sample_apps());
+        state.system = crate::collect::SystemStats {
+            cpu_pct: Some(37.0),
+            cores: 8,
+            mem: Some((16 << 30, 6 << 30)),
+            swap: Some((8 << 30, 1 << 29)),
+            uptime: Some(3600.0),
+        };
         state.selected = Some("App:Firefox".into());
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         insta::assert_snapshot!(text);
@@ -99,15 +122,43 @@ mod tests {
         state.filter_push('f');
         state.filter_push('i');
         let text = render_to_text(60, 14, &mut state, &mut test_store());
-        assert_eq!(text.lines().last(), Some("/fi▏"));
+        let filter_line = |text: &str| text.lines().rev().nth(1).map(str::to_string);
+        assert_eq!(filter_line(&text).as_deref(), Some("/fi▏"));
+        assert!(text.lines().last().unwrap().starts_with("Enter aplicar"));
         assert!(text.contains("Firefox") && !text.contains("Alacritty"));
         state.accept_filter();
         let text = render_to_text(60, 14, &mut state, &mut test_store());
-        assert_eq!(text.lines().last(), Some("/fi"));
+        assert_eq!(filter_line(&text).as_deref(), Some("/fi"));
+        assert!(text.lines().last().unwrap().contains("Esc quitar filtro"));
         state.filter = "zzz".into();
         state.reorder();
         let text = render_to_text(60, 14, &mut state, &mut test_store());
         assert!(text.contains("Ninguna app coincide"));
+    }
+
+    #[test]
+    fn bars_show_totals_and_shortcuts_and_nd_when_unknown() {
+        let mut state = State::new(Theme::default());
+        state.set_apps(state::tests::sample_apps());
+        let text = render_to_text(100, 20, &mut state, &mut test_store());
+        let top = text.lines().next().unwrap();
+        assert!(
+            top.starts_with("apptop  CPU n/d  RAM n/d  Swap n/d"),
+            "{top}"
+        );
+        assert!(top.ends_with("3 apps · 2 servicios"), "{top}");
+        assert!(text.lines().last().unwrap().contains("q salir"));
+
+        state.system.cpu_pct = Some(250.0);
+        state.system.mem = Some((8 << 30, 2 << 30));
+        state.system.swap = Some((0, 0));
+        let text = render_to_text(100, 20, &mut state, &mut test_store());
+        let top = text.lines().next().unwrap();
+        assert!(top.contains("CPU ━━━━━━━━━━ 250%"), "{top}");
+        assert!(
+            top.contains("2.0G/8.0G") && top.contains("sin swap"),
+            "{top}"
+        );
     }
 
     #[test]

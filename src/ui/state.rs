@@ -1,6 +1,7 @@
 //! Estado de la interfaz, independiente del dibujo.
 
-use crate::apps::{App, AppKind};
+use crate::apps::{App, AppKind, Sample};
+use crate::collect::SystemStats;
 use crate::icons::GRID_ICON;
 
 use super::grid::GridLayout;
@@ -118,6 +119,8 @@ pub struct State {
     pub filter: String,
     /// Apps de la última muestra.
     pub apps: Vec<App>,
+    /// Totales del sistema de la última muestra.
+    pub system: SystemStats,
     /// Índices de `apps` en el orden en que se muestran.
     pub order: Vec<usize>,
     /// Id de la app seleccionada (sobrevive a los refrescos).
@@ -140,6 +143,7 @@ impl State {
             sections: Sections::default(),
             filter: String::new(),
             apps: Vec::new(),
+            system: SystemStats::default(),
             order: Vec::new(),
             selected: None,
             scroll: 0,
@@ -147,6 +151,12 @@ impl State {
             theme,
             layout: GridLayout::default(),
         }
+    }
+
+    /// Incorpora una muestra completa (apps + sistema).
+    pub fn apply(&mut self, sample: Sample) {
+        self.system = sample.system;
+        self.set_apps(sample.apps);
     }
 
     /// Reemplaza las apps por una muestra nueva conservando la selección.

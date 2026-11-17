@@ -8,11 +8,19 @@ pub use cgroup::{classify, Unit};
 pub use desktop::{DesktopIndex, DesktopInfo};
 pub use group::{group_apps, group_apps_with, App, AppKind, Origin};
 
-use crate::collect::Collector;
+use crate::collect::{Collector, SystemSampler, SystemStats};
+
+/// Resultado de una muestra: apps agrupadas y totales del sistema.
+#[derive(Debug, Clone, Default)]
+pub struct Sample {
+    pub apps: Vec<App>,
+    pub system: SystemStats,
+}
 
 /// Toma muestras de procesos y las entrega ya agrupadas en apps.
 pub struct Sampler {
     collector: Collector,
+    system: SystemSampler,
     index: DesktopIndex,
 }
 
@@ -21,15 +29,21 @@ impl Sampler {
     /// siguiente ya tenga porcentajes de CPU.
     pub fn new() -> Self {
         let mut collector = Collector::new();
+        let mut system = SystemSampler::new();
         collector.sample();
+        system.sample();
         Self {
             collector,
+            system,
             index: DesktopIndex::load(),
         }
     }
 
-    pub fn sample(&mut self) -> Vec<App> {
-        group_apps_with(self.collector.sample(), Some(&self.index))
+    pub fn sample(&mut self) -> Sample {
+        Sample {
+            apps: group_apps_with(self.collector.sample(), Some(&self.index)),
+            system: self.system.sample(),
+        }
     }
 
     pub fn collector(&self) -> &Collector {

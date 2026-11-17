@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use clap::Parser;
 
-use apptop::apps::{group_apps_with, AppKind, DesktopIndex};
+use apptop::apps::{group_apps_with, AppKind, DesktopIndex, Sample, Sampler};
 use apptop::collect::Collector;
 use apptop::icons::{BrailleIcon, GenericKind, IconLocator, IconStore, DETAIL_ICON, GRID_ICON};
 use apptop::ui::format::human_bytes;
@@ -116,13 +116,9 @@ fn list_procs() {
 }
 
 fn list_apps() {
-    let mut collector = Collector::new();
-    collector.sample();
-    sleep(Duration::from_millis(250));
-    let index = DesktopIndex::load();
+    let apps = sample_once().apps;
     let locator = IconLocator::detect();
     println!("Tema de iconos: {}\n", locator.theme());
-    let apps = group_apps_with(collector.sample(), Some(&index));
     for (kind, title) in [
         (AppKind::App, "APLICACIONES"),
         (AppKind::Service, "SERVICIOS"),
@@ -233,18 +229,16 @@ fn parse_size(text: &str) -> Option<(u16, u16)> {
     Some((w.trim().parse().ok()?, h.trim().parse().ok()?))
 }
 
-/// Toma dos muestras (para tener CPU %) y agrupa en apps.
-fn sample_apps() -> Vec<apptop::apps::App> {
-    let mut collector = Collector::new();
-    collector.sample();
+/// Toma dos muestras separadas por un cuarto de segundo, para tener CPU %.
+fn sample_once() -> Sample {
+    let mut sampler = Sampler::new();
     sleep(Duration::from_millis(250));
-    let index = DesktopIndex::load();
-    group_apps_with(collector.sample(), Some(&index))
+    sampler.sample()
 }
 
 fn snapshot(width: u16, height: u16, app: Option<&str>) -> Result<String, String> {
     let mut state = State::new(Theme::detect());
-    state.set_apps(sample_apps());
+    state.apply(sample_once());
     if let Some(wanted) = app {
         let lower = wanted.to_lowercase();
         let found = state

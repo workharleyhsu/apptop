@@ -97,3 +97,10 @@ Decisiones y problemas, por iteración.
   Esc lo borra. Coincide con nombre, AppID o nombre de algún proceso.
 - `Tab` cicla secciones visibles: todo → solo apps → solo servicios.
 - La línea del filtro ocupa la última fila solo mientras hay filtro.
+
+## Iteración 12 — barras
+- `/proc/stat` y `/proc/meminfo` se parsean a mano (raíz inyectable para tests). RAM usada =
+  MemTotal − MemAvailable. Lo ilegible se muestra `n/d`; sin swap se muestra "sin swap".
+- La barra inferior depende de vista y modo; cada atajo tiene prioridad y los menos
+  importantes se descartan si no entran (a 80 columnas se cae "mover").
+- Con menos de 3 filas se omiten las barras y queda solo el contenido.

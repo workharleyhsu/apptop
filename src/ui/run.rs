@@ -46,7 +46,7 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
 
     // La primera muestra con CPU % necesita un intervalo; se muestra antes
     // una sin porcentajes para no arrancar con la pantalla vacía.
-    state.set_apps(sampler.sample());
+    state.apply(sampler.sample());
     let mut next_sample = Instant::now() + options.refresh.min(Duration::from_millis(500));
     let mut dirty = true;
 
@@ -65,7 +65,7 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
                 Outcome::Ignored => {}
             }
         } else {
-            state.set_apps(sampler.sample());
+            state.apply(sampler.sample());
             next_sample = Instant::now() + options.refresh;
             dirty = true;
         }
