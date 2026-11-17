@@ -19,7 +19,7 @@ use ratatui::{Frame, Terminal};
 use crate::icons::IconStore;
 
 pub use run::{run, RunOptions};
-pub use state::{ActionRequest, Mode, Sections, SortKey, State, View};
+pub use state::{ActionRequest, Mode, Sections, SortKey, State, View, MIN_SIZE};
 pub use theme::Theme;
 
 /// Dibuja un cuadro completo: barra superior, vista actual, línea de
@@ -27,6 +27,10 @@ pub use theme::Theme;
 pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
     let full = frame.area();
     let buf = frame.buffer_mut();
+    if state.enforce_min_size && (full.width < MIN_SIZE.0 || full.height < MIN_SIZE.1) {
+        draw_too_small(buf, full, state);
+        return;
+    }
     let row = |y: u16| Rect::new(full.x, y, full.width, 1);
     let mut body = full;
 
@@ -64,6 +68,37 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
         Mode::Nice(request) => dialog::draw_nice(buf, body, state, request),
         Mode::SignalMenu(cursor) => dialog::draw_signal_menu(buf, body, state, *cursor),
         Mode::Normal | Mode::Filter => {}
+    }
+}
+
+/// Aviso que reemplaza a la interfaz cuando la terminal es demasiado chica.
+fn draw_too_small(buf: &mut ratatui::buffer::Buffer, area: Rect, state: &State) {
+    let lines = [
+        (
+            "Terminal demasiado chica".to_string(),
+            state.theme.selected(),
+        ),
+        (
+            format!(
+                "{}x{} — mínimo {}x{}",
+                area.width, area.height, MIN_SIZE.0, MIN_SIZE.1
+            ),
+            state.theme.text(),
+        ),
+        (
+            "Agrandá la ventana (q para salir)".to_string(),
+            state.theme.dim(),
+        ),
+    ];
+    let top = area.y + area.height.saturating_sub(lines.len() as u16) / 2;
+    for (i, (text, style)) in lines.iter().enumerate() {
+        let y = top + i as u16;
+        if y >= area.y + area.height {
+            break;
+        }
+        let width = text.chars().count() as u16;
+        let x = area.x + area.width.saturating_sub(width) / 2;
+        buf.set_stringn(x, y, text, area.width as usize, *style);
     }
 }
 
@@ -178,6 +213,65 @@ mod tests {
             text.contains("24% 5.3G") && text.contains("120% 12M"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn terminals_below_80x24_show_a_message_instead_of_the_ui() {
+        let mut state = detail_state();
+        state.enforce_min_size = true;
+        let mut store = test_store();
+        for (w, h) in [(79, 24), (80, 23), (40, 10)] {
+            let text = render_to_text(w, h, &mut state, &mut store);
+            assert!(text.contains("Terminal demasiado chica"), "{w}x{h}\n{text}");
+            assert!(text.contains(&format!("{w}x{h} — mínimo 80x24")), "{text}");
+            assert!(!text.contains("PROCESO"), "no se dibuja la interfaz debajo");
+        }
+        // Justo en el mínimo, y al volver a agrandar, la interfaz normal.
+        let text = render_to_text(80, 24, &mut state, &mut store);
+        assert!(!text.contains("demasiado chica") && text.contains("PROCESO"));
+        // Tamaños absurdos tampoco rompen el aviso.
+        for (w, h) in [(0, 0), (1, 1), (5, 2), (200, 3)] {
+            let _ = render_to_text(w, h, &mut state, &mut store);
+        }
+    }
+
+    #[test]
+    fn resizing_between_frames_keeps_the_selection_visible() {
+        let mut state = State::new(Theme::default());
+        let mut apps = Vec::new();
+        for i in 0..40 {
+            apps.push(state::tests::app(
+                &format!("app{i:02}"),
+                crate::apps::AppKind::App,
+                0.0,
+                1,
+            ));
+        }
+        state.set_apps(apps);
+        state.select_index(39);
+        let mut store = test_store();
+        // Grande → chica → ancha y baja → grande: mismo estado, tamaños distintos.
+        for (w, h) in [(160, 50), (80, 24), (200, 12), (30, 9), (120, 40)] {
+            let text = render_to_text(w, h, &mut state, &mut store);
+            assert!(
+                text.contains("app39"),
+                "{w}x{h}: la selección debe verse\n{text}"
+            );
+            let view = h.saturating_sub(2);
+            assert!(
+                state.scroll
+                    <= state
+                        .layout
+                        .height
+                        .saturating_sub(view.min(state.layout.height))
+            );
+            assert_eq!(state.layout.area.width, w);
+        }
+        // Con un diálogo abierto también.
+        state.mode = Mode::SignalMenu(2);
+        for (w, h) in [(120, 40), (40, 8), (10, 3)] {
+            let _ = render_to_text(w, h, &mut state, &mut store);
+        }
     }
 
     #[test]

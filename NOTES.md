@@ -227,3 +227,15 @@ Decisiones y problemas, por iteración.
 - `toml` fijado en `~1.1`: la 1.2.1 pide `toml_writer ^1.2.0`, que no resolvía en el índice.
 - Con iconos chicos el resumen se acorta por pasos ("11.0% 5.9G" → "11% 5.9G" → "120% 12M"
   → solo CPU) para no invadir la baldosa vecina.
+
+## Iteración 27 — resize, terminal chica, panic
+- Menos de 80×24 → aviso centrado con el tamaño actual y el mínimo, en vez de la interfaz
+  (`State::enforce_min_size`; en los tests unitarios está apagado por defecto porque dibujan
+  a propósito en lienzos chicos, y el aviso tiene su propio test).
+- Resize: ratatui reajusta el buffer en cada `draw`; el evento solo pide redibujar. El scroll
+  y la selección se recalculan contra el área nueva en cada cuadro.
+- Panic: hook propio que primero quita la captura de mouse y restaura la terminal, y recién
+  después deja imprimir el mensaje. `--panic-test` (oculto) lo provoca para probarlo.
+- SIGTERM/SIGHUP/SIGINT: manejador que solo marca un `AtomicBool`; el bucle sale ordenado.
+- Verificado en vivo bajo pty: achicar a 60×20 muestra el aviso y agrandar lo quita; panic →
+  código 101 con terminal restaurada y mensaje legible; SIGTERM/SIGHUP → salida limpia.

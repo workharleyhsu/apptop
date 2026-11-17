@@ -176,6 +176,9 @@ pub struct Message {
 /// Segundos que permanece un aviso en pantalla.
 pub const MESSAGE_SECS: f64 = 5.0;
 
+/// Tamaño mínimo de terminal para el que está pensada la interfaz.
+pub const MIN_SIZE: (u16, u16) = (80, 24);
+
 /// Límites del intervalo de refresco.
 pub const MIN_REFRESH: Duration = Duration::from_millis(250);
 pub const MAX_REFRESH: Duration = Duration::from_secs(10);
@@ -207,6 +210,9 @@ pub struct State {
     /// Segundos transcurridos al tomar la última muestra.
     pub clock: f64,
     started: std::time::Instant,
+    /// Mostrar un aviso en vez de la interfaz si la terminal es menor que
+    /// [`MIN_SIZE`].
+    pub enforce_min_size: bool,
     /// apptop y sus ancestros (pid propio primero): nunca se les envían
     /// señales que congelarían o matarían la interfaz.
     pub lineage: Vec<i32>,
@@ -247,6 +253,9 @@ impl State {
             system: SystemStats::default(),
             ticks_per_second: 100.0,
             detail: None,
+            // Los tests dibujan a propósito en lienzos chicos para ejercitar
+            // el recorte; el aviso de tamaño mínimo se prueba aparte.
+            enforce_min_size: !cfg!(test),
             lineage: Vec::new(),
             pending: None,
             pending_nice: None,

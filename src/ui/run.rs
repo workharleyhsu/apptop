@@ -2,8 +2,10 @@
 
 use std::io::{self, stdout};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture};
 use ratatui::crossterm::execute;
 use ratatui::DefaultTerminal;
@@ -29,6 +31,8 @@ pub struct RunOptions {
     pub theme: Theme,
     /// Tema de iconos; `None` = detectar.
     pub icon_theme: Option<String>,
+    /// Provoca un panic tras el primer cuadro (para probar la restauración).
+    pub panic_test: bool,
 }
 
 impl Default for RunOptions {
@@ -53,6 +57,7 @@ impl RunOptions {
                 accent_rgb: config.accent.unwrap_or(DEFAULT_ACCENT),
             },
             icon_theme: config.icon_theme.clone(),
+            panic_test: false,
         }
     }
 
@@ -76,13 +81,53 @@ impl RunOptions {
     }
 }
 
+/// Se pone en `true` cuando llega SIGTERM, SIGHUP o SIGINT: el bucle sale
+/// ordenadamente y la terminal queda restaurada.
+static TERMINATE: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn on_terminate(_signal: libc::c_int) {
+    // Solo una escritura atómica: es lo único seguro dentro de un manejador.
+    TERMINATE.store(true, Ordering::Relaxed);
+}
+
+/// Instala los manejadores de señales de terminación.
+fn install_signal_handlers() {
+    let action = SigAction::new(
+        SigHandler::Handler(on_terminate),
+        SaFlags::empty(),
+        SigSet::empty(),
+    );
+    for signal in [Signal::SIGTERM, Signal::SIGHUP, Signal::SIGINT] {
+        // SAFETY: el manejador solo escribe un AtomicBool (async-signal-safe).
+        let _ = unsafe { sigaction(signal, &action) };
+    }
+}
+
+/// Deja la terminal como estaba: sin captura de mouse, fuera de la pantalla
+/// alternativa y del modo crudo. Se puede llamar más de una vez.
+fn restore_terminal() {
+    let _ = execute!(stdout(), DisableMouseCapture);
+    ratatui::restore();
+}
+
+/// Ante un panic, primero se restaura la terminal y después se imprime el
+/// mensaje: si no, quedaría en modo crudo y el error sería ilegible.
+fn install_panic_hook() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        restore_terminal();
+        previous(info);
+    }));
+}
+
 /// Ejecuta la interfaz hasta que el usuario sale.
 pub fn run(options: &RunOptions) -> io::Result<()> {
+    install_panic_hook();
+    install_signal_handlers();
     let mut terminal = ratatui::try_init()?;
     let result =
         execute!(stdout(), EnableMouseCapture).and_then(|()| event_loop(&mut terminal, options));
-    let _ = execute!(stdout(), DisableMouseCapture);
-    ratatui::restore();
+    restore_terminal();
     result
 }
 
@@ -105,10 +150,23 @@ fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Resul
             terminal.draw(|frame| super::draw(frame, &mut state, &mut store))?;
             dirty = false;
         }
+        if TERMINATE.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+        if options.panic_test {
+            panic!("panic de prueba pedido con --panic-test");
+        }
         // Un solo hilo: se duerme en `poll` hasta el próximo evento o hasta
         // que toque tomar la siguiente muestra.
+        // `poll` puede volver con error si lo interrumpe una señal: se trata
+        // como "sin evento" y el bucle vuelve a mirar la bandera de salida.
         let wait = next_sample.saturating_duration_since(Instant::now());
-        if event::poll(wait)? {
+        let ready = match event::poll(wait) {
+            Ok(ready) => ready,
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+            Err(err) => return Err(err),
+        };
+        if ready {
             let before = state.refresh;
             match handle_event(&mut state, &event::read()?) {
                 Outcome::Quit => return Ok(()),

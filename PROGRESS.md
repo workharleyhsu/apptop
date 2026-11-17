@@ -40,7 +40,7 @@
 
 ## Fase 6 — Pulido
 - [x] Config en `~/.config/apptop/config.toml` (refresco, orden, tamaño de icono, tema).
-- [ ] Manejo de resize, terminales chicas (mensaje si es menor a 80x24) y restauración
+- [x] Manejo de resize, terminales chicas (mensaje si es menor a 80x24) y restauración
       de la terminal ante panic.
 - [ ] Rendimiento: medir y optimizar hasta cumplir los criterios.
 - [ ] README con capturas en texto, atajos e instalación.

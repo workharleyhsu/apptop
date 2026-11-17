@@ -61,6 +61,10 @@ struct Cli {
     #[arg(long, value_name = "ANCHOxALTO", default_value = "100x30")]
     size: String,
 
+    /// Provoca un panic tras el primer cuadro (prueba de restauración).
+    #[arg(long, hide = true)]
+    panic_test: bool,
+
     /// Imprime todos los procesos leídos (depuración).
     #[arg(long)]
     list_procs: bool,
@@ -82,7 +86,8 @@ fn main() {
         print!("{}", config.to_toml());
         return;
     }
-    let options = RunOptions::from_config(&config);
+    let mut options = RunOptions::from_config(&config);
+    options.panic_test = cli.panic_test;
 
     if cli.list {
         list_apps(&options);
