@@ -2,6 +2,7 @@
 # Arma en dist/ todo lo que se publica en un release:
 #
 #   apptop-<ver>-x86_64-linux.tar.gz (+ .sha256)   binario estático + docs
+#   apptop-x86_64-linux.tar.gz (+ .sha256)         lo mismo, con nombre fijo
 #   apptop_<ver>-1_amd64.deb                        Debian, Ubuntu y derivadas
 #   apptop-<ver>-1.x86_64.rpm                       Fedora, RHEL, openSUSE
 #   SHA256SUMS                                      sumas de todo lo anterior
@@ -37,6 +38,10 @@ cp "$BIN" README.md README.es.md LICENSE-MIT LICENSE-APACHE "$DIST/$NAME/"
 tar -C "$DIST" --owner=0 --group=0 --numeric-owner -czf "$DIST/$NAME.tar.gz" "$NAME"
 rm -rf "${DIST:?}/$NAME"
 (cd "$DIST" && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
+# Copia con nombre fijo: install.sh la baja de releases/latest/download sin
+# tener que averiguar la versión.
+cp "$DIST/$NAME.tar.gz" "$DIST/apptop-x86_64-linux.tar.gz"
+(cd "$DIST" && sha256sum apptop-x86_64-linux.tar.gz > apptop-x86_64-linux.tar.gz.sha256)
 
 # 2. Paquetes. Con --target, las rutas target/release de Cargo.toml pasan a
 #    apuntar al binario musl ya compilado.

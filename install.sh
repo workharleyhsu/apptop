@@ -29,14 +29,6 @@ fetch() {
     fi
 }
 
-fetch_text() {
-    if command -v curl >/dev/null 2>&1; then
-        curl -fsSL --proto '=https,file' "$1"
-    else
-        wget -q "$1" -O -
-    fi
-}
-
 main() {
     [ "$(uname -s)" = "Linux" ] || fail "only Linux is supported"
     case "$(uname -m)" in
@@ -47,24 +39,21 @@ main() {
     command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is required"
     command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || fail "curl or wget is required"
 
-    version="${APPTOP_VERSION:-}"
-    if [ -z "$version" ] && [ -z "${APPTOP_BASE_URL:-}" ]; then
-        # The "latest" URL redirects to the newest tag; read it from the API.
-        version=$(fetch_text "https://api.github.com/repos/$REPO/releases/latest" |
-            sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
-        [ -n "$version" ] || fail "could not find the latest release of $REPO"
+    # Each release also ships the tarball under a name without the version,
+    # so "latest" can be downloaded directly: no API call, no rate limit.
+    name="apptop-x86_64-linux"
+    if [ -n "${APPTOP_BASE_URL:-}" ]; then
+        base="$APPTOP_BASE_URL"
+    elif [ -n "${APPTOP_VERSION:-}" ]; then
+        base="https://github.com/$REPO/releases/download/$APPTOP_VERSION"
+    else
+        base="https://github.com/$REPO/releases/latest/download"
     fi
-    number="${version#v}"
-    base="${APPTOP_BASE_URL:-https://github.com/$REPO/releases/download/$version}"
-    if [ -z "$number" ]; then
-        fail "set APPTOP_VERSION when using APPTOP_BASE_URL"
-    fi
-    name="apptop-$number-x86_64-linux"
 
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT INT TERM
 
-    say "Downloading apptop $number..."
+    say "Downloading apptop..."
     fetch "$base/$name.tar.gz" "$tmp/$name.tar.gz"
     fetch "$base/$name.tar.gz.sha256" "$tmp/$name.tar.gz.sha256"
 
@@ -73,12 +62,17 @@ main() {
         fail "checksum mismatch: the download is corrupt or was tampered with"
 
     tar -xzf "$tmp/$name.tar.gz" -C "$tmp"
-    [ -f "$tmp/$name/apptop" ] || fail "the archive does not contain the apptop binary"
+    # The directory inside the archive carries the version number.
+    bin=""
+    for candidate in "$tmp"/apptop-*/apptop; do
+        [ -f "$candidate" ] && bin="$candidate"
+    done
+    [ -n "$bin" ] || fail "the archive does not contain the apptop binary"
 
     dir="${APPTOP_INSTALL_DIR:-$HOME/.local/bin}"
     mkdir -p "$dir"
     # Copy then rename, so an apptop that is running is replaced atomically.
-    cp "$tmp/$name/apptop" "$dir/.apptop.new"
+    cp "$bin" "$dir/.apptop.new"
     chmod 755 "$dir/.apptop.new"
     mv -f "$dir/.apptop.new" "$dir/apptop"
 
