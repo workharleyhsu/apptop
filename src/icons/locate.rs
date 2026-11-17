@@ -1,16 +1,26 @@
 //! Localiza el archivo de un icono según el tema activo.
 //!
 //! El orden de búsqueda es: ruta absoluta → tema activo y sus padres →
-//! `hicolor` → `pixmaps`. El tema activo se lee de los archivos de
-//! configuración (sin ejecutar `gsettings`).
+//! `hicolor` → temas comunes instalados → `pixmaps`. El tema activo se lee de
+//! los archivos de configuración; solo si ninguno lo dice se pregunta a
+//! `gsettings` (GNOME y Cinnamon lo guardan en dconf, no en un archivo).
 
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 /// Tamaño pedido al tema. Es mayor que el lienzo de trabajo para que la
 /// detección de bordes parta de una imagen reducida, no ampliada.
 const LOOKUP_SIZE: u16 = 128;
 
 const FALLBACK_THEME: &str = "hicolor";
+
+/// Temas donde buscar un icono que ni el tema activo ni `hicolor` traen
+/// (p. ej. `utilities-terminal`, que `hicolor` nunca incluye).
+const COMMON_THEMES: &[&str] = &["Adwaita", "breeze", "Papirus", "Yaru", "Mint-Y", "gnome"];
+
+/// Espera máxima a `gsettings`: nunca debe frenar el arranque.
+const GSETTINGS_TIMEOUT: Duration = Duration::from_millis(400);
 
 pub struct IconLocator {
     theme: String,
@@ -50,6 +60,35 @@ fn clean(value: &str) -> String {
     value.trim().trim_matches(['"', '\'']).to_string()
 }
 
+/// Pregunta el tema a `gsettings`. Devuelve `None` si no está instalado, no
+/// responde a tiempo o el esquema no existe.
+fn theme_from_gsettings() -> Option<String> {
+    let mut child = Command::new("gsettings")
+        .args(["get", "org.gnome.desktop.interface", "icon-theme"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => break,
+            Ok(None) if start.elapsed() < GSETTINGS_TIMEOUT => {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        }
+    }
+    let output = child.wait_with_output().ok()?;
+    let theme = clean(&String::from_utf8_lossy(&output.stdout));
+    (!theme.is_empty()).then_some(theme)
+}
+
 /// Tema de iconos configurado por el usuario, si se puede averiguar.
 pub fn detect_theme() -> Option<String> {
     if let Some(theme) = std::env::var("APPTOP_ICON_THEME")
@@ -58,6 +97,10 @@ pub fn detect_theme() -> Option<String> {
     {
         return Some(theme);
     }
+    theme_from_config_files().or_else(theme_from_gsettings)
+}
+
+fn theme_from_config_files() -> Option<String> {
     let config = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
@@ -119,9 +162,10 @@ impl IconLocator {
                 .filter(|p| supported(p))
         };
         find(&self.theme).or_else(|| {
-            (self.theme != FALLBACK_THEME)
-                .then(|| find(FALLBACK_THEME))
-                .flatten()
+            std::iter::once(FALLBACK_THEME)
+                .chain(COMMON_THEMES.iter().copied())
+                .filter(|theme| *theme != self.theme)
+                .find_map(find)
         })
     }
 }

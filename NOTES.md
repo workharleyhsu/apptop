@@ -376,7 +376,7 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
 - Verificado en CachyOS con un binario temporal (copiado a /tmp y borrado): 12 apps, sin
   `firefox (1)`, Konsole con origen "app".
 
-## Después de v0.1.2 — Firefox aparecía como "Rofi" en Linux Mint
+## v0.1.3 — Linux Mint: Firefox como "Rofi" e iconos sin tema
 
 Visto en Linux Mint 22.1 con sesión GNOME (`ssh tito`). Dos causas juntas:
 
@@ -399,3 +399,17 @@ Arreglo:
 
 Verificado en esa máquina con un binario temporal en `/tmp`, borrado después:
 "Firefox Web Browser" con sus 13 procesos y ningún grupo "Rofi".
+
+En la misma máquina Konsole no tenía icono. El tema de iconos de GNOME y
+Cinnamon vive en dconf, no en un archivo, así que la detección caía en
+`hicolor`, que no trae `utilities-terminal`.
+
+- Si ningún archivo de configuración dice el tema, se pregunta a `gsettings`
+  (con espera máxima de 400 ms). Antes se evitaba ejecutarlo; se mantiene como
+  último recurso para no pagar el costo donde hay archivo.
+- Un icono que no está ni en el tema activo ni en `hicolor` se busca en temas
+  comunes instalados (Adwaita, breeze, Papirus, Yaru, Mint-Y, gnome).
+- El arranque no cambió: 0,31 s con `--snapshot`, igual que 0.1.2.
+
+De paso: `apptop --list | head` terminaba con un panic por tubería rota. Ahora
+`main` restaura la acción por defecto de SIGPIPE.

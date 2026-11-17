@@ -88,6 +88,13 @@ struct Cli {
 }
 
 fn main() {
+    // Rust ignora SIGPIPE y `println!` hace panic si el lector cierra antes
+    // (`apptop --list | head`). Con la acción por defecto el proceso termina
+    // en silencio, como cualquier herramienta de consola.
+    // SAFETY: se llama al arrancar, antes de crear hilos o manejadores.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
     let cli = Cli::parse();
 
     // Configuración: archivo (opcional) y encima las opciones de la línea
