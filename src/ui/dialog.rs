@@ -141,12 +141,31 @@ pub fn draw_nice(buf: &mut Buffer, area: Rect, state: &State, request: &NiceRequ
             theme.dim(),
         ),
     ];
+    // Bajar la prioridad es un camino de ida para un usuario común: el
+    // kernel no deja volver a un valor menor sin privilegios.
+    let lowering = (request.value as i64) > request.current.0;
+    let warn = Style::default().fg(theme.load(50.0));
+    lines.push((
+        "Solo se nota cuando la CPU está saturada".to_string(),
+        theme.dim(),
+    ));
     if raising {
         lines.push((
             "Subir la prioridad requiere root o CAP_SYS_NICE".to_string(),
-            Style::default().fg(theme.load(50.0)),
+            warn,
+        ));
+        lines.push((String::new(), theme.text()));
+    } else if lowering {
+        lines.push((
+            "Sin root no se puede volver a un valor menor:".to_string(),
+            warn,
+        ));
+        lines.push((
+            "para recuperar la prioridad hay que reiniciar la app".to_string(),
+            warn,
         ));
     } else {
+        lines.push((String::new(), theme.text()));
         lines.push((String::new(), theme.text()));
     }
     lines.push((

@@ -433,6 +433,17 @@ mod tests {
         state.nice_adjust(9);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         assert!(text.contains("Nueva:   5") && !text.contains("requiere root"));
+        // Al bajar la prioridad se avisa que no hay vuelta atrás sin root.
+        assert!(
+            text.contains("Sin root no se puede volver a un valor menor"),
+            "{text}"
+        );
+        assert!(text.contains("hay que reiniciar la app"), "{text}");
+        // Sin cambio respecto del valor actual: ninguna advertencia.
+        state.nice_adjust(-5);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert!(text.contains("Nueva:   0") && text.contains("Solo se nota cuando la CPU"));
+        assert!(!text.contains("Sin root") && !text.contains("requiere root"));
     }
 
     #[test]
