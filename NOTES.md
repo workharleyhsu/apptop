@@ -44,3 +44,18 @@ Decisiones y problemas, por iteración.
   `default_theme_gtk()` porque ejecuta `gsettings`: el tema se lee de `gtk-4.0/settings.ini`,
   `gtk-3.0/settings.ini`, `kdeglobals` o `xsettingsd.conf` (o `APPTOP_ICON_THEME`).
 - Se pide tamaño 128 para reducir (no ampliar) antes de detectar bordes. Solo SVG/PNG (no XPM).
+
+## Iteración 6 — pipeline de iconos
+- resvg sin features (sin texto ni fuentes del sistema: arranque y RAM); `image` solo con PNG.
+  Consecuencia: SVG con `<text>` o con imágenes raster embebidas pierden esas partes.
+- Flujo: SVG a 256 px → recorte al contenido visible → reducción por promedio de área (alfa
+  premultiplicado) al doble de la resolución en puntos → bordes → fusión 2×2 → braille.
+- Bordes = silueta por alfa (contorno interior exacto de 1 px) + Canny simplificado sobre el
+  color (Sobel por canal, supresión de no-máximos, histéresis). El umbral arranca bajo (70) y
+  sube ×1.3 hasta que los bordes internos ocupen ≤ 8.5 % del lienzo: detalle en iconos de
+  poco contraste (Alacritty) sin que los muy detallados se vean rellenos.
+- Color dominante por histograma de TONOS (36 sectores) ponderado por saturación² y brillo;
+  el histograma RGB elegía el gris de fondo de Alacritty en vez del naranja. Si el color es
+  muy oscuro se aclara hasta luminancia 110 para que se lea en terminal oscura (desvío
+  deliberado del color exacto). Monocromo → gris neutro.
+- `--dump-icon <app> [--large] [--color auto|always|never]`: la ruta y el color van a stderr.
