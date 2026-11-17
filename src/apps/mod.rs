@@ -15,6 +15,19 @@ use crate::collect::{Collector, SystemSampler, SystemStats};
 pub struct Sample {
     pub apps: Vec<App>,
     pub system: SystemStats,
+    /// Ticks de reloj por segundo (para convertir `starttime` a tiempo).
+    pub ticks_per_second: f64,
+    /// Datos caros, solo de la app abierta en detalle.
+    pub detail: Option<DetailData>,
+}
+
+/// Mediciones que solo se toman para la app abierta en la vista de detalle.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DetailData {
+    /// Id de la app a la que pertenecen.
+    pub app_id: String,
+    /// PSS total en bytes; `None` si no se pudo leer de ningún proceso.
+    pub pss: Option<u64>,
 }
 
 /// Toma muestras de procesos y las entrega ya agrupadas en apps.
@@ -40,9 +53,34 @@ impl Sampler {
     }
 
     pub fn sample(&mut self) -> Sample {
+        self.sample_with_detail(None)
+    }
+
+    /// Toma una muestra y, si `detail` nombra una app en ejecución, agrega
+    /// sus mediciones caras.
+    pub fn sample_with_detail(&mut self, detail: Option<&str>) -> Sample {
+        let apps = group_apps_with(self.collector.sample(), Some(&self.index));
+        let detail = detail
+            .and_then(|id| apps.iter().find(|a| a.id == id))
+            .map(|app| self.detail_for(app));
         Sample {
-            apps: group_apps_with(self.collector.sample(), Some(&self.index)),
+            apps,
             system: self.system.sample(),
+            ticks_per_second: self.collector.ticks_per_second(),
+            detail,
+        }
+    }
+
+    fn detail_for(&mut self, app: &App) -> DetailData {
+        // Ajeno o ya muerto → ese proceso no suma; todos ilegibles → n/d.
+        let pss: Vec<u64> = app
+            .procs
+            .iter()
+            .filter_map(|p| self.collector.pss(p.pid))
+            .collect();
+        DetailData {
+            app_id: app.id.clone(),
+            pss: (!pss.is_empty()).then(|| pss.iter().sum()),
         }
     }
 

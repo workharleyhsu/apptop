@@ -161,6 +161,68 @@ mod tests {
         );
     }
 
+    /// Estado en vista de detalle con una app de tres procesos.
+    pub(crate) fn detail_state() -> State {
+        use crate::apps::group::tests::proc;
+        let mut state = State::new(Theme::default());
+        let mut apps = state::tests::sample_apps();
+        let cg = "/user.slice/app.slice/app-firefox-1.scope";
+        let mut procs = vec![
+            proc(4100, 1, "/usr/lib64/firefox/firefox", cg),
+            proc(4130, 4100, "/usr/lib64/firefox/firefox", cg),
+            proc(4222, 4100, "/usr/lib64/firefox/firefox", cg),
+        ];
+        for (p, (start, threads, rss)) in
+            procs
+                .iter_mut()
+                .zip([(6000, 120, 900), (6400, 30, 400), (9000, 22, 250)])
+        {
+            p.starttime = start;
+            p.threads = threads;
+            p.rss = rss << 20;
+        }
+        apps[1].procs = procs;
+        state.set_apps(apps);
+        state.system.uptime = Some(7460.0);
+        state.users.insert(1000, "ana".into());
+        state.selected = Some("App:Firefox".into());
+        state.enter_detail();
+        state.detail = Some(crate::apps::DetailData {
+            app_id: "App:Firefox".into(),
+            pss: Some(1200 << 20),
+        });
+        state
+    }
+
+    #[test]
+    fn detail_snapshot_80x24() {
+        let mut state = detail_state();
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        insta::assert_snapshot!(text);
+    }
+
+    #[test]
+    fn detail_shows_nd_for_unknown_values_and_survives_app_exit() {
+        let mut state = detail_state();
+        state.detail = None;
+        state.system.uptime = None;
+        state.apps[1].procs.iter_mut().for_each(|p| p.uid = None);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert!(text.contains("PSS n/d"), "{text}");
+        assert!(
+            text.contains("Usuario   n/d") && text.contains("Activa    n/d"),
+            "{text}"
+        );
+
+        // La app muere mientras se mira su detalle.
+        state.apps.retain(|a| a.name != "Firefox");
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert!(text.contains("ya no está en ejecución"));
+        for (w, h) in [(1, 1), (20, 4), (30, 30)] {
+            let _ = render_to_text(w, h, &mut detail_state(), &mut test_store());
+        }
+    }
+
     #[test]
     fn empty_state_shows_a_message_and_tiny_sizes_do_not_panic() {
         let mut state = State::new(Theme::default());

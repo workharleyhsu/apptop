@@ -68,12 +68,17 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
                 Outcome::Redraw => dirty = true,
                 Outcome::Ignored => {}
             }
+            // Al entrar al detalle se mide enseguida, sin esperar al intervalo.
+            if state.detail_target().is_some() && state.detail_of_selected().is_none() {
+                next_sample = Instant::now();
+            }
             if state.refresh != before {
                 // El intervalo nuevo rige desde ya, no desde la próxima muestra.
                 next_sample = Instant::now() + state.refresh;
             }
         } else {
-            state.apply(sampler.sample());
+            let sample = sampler.sample_with_detail(state.detail_target());
+            state.apply(sample);
             next_sample = Instant::now() + state.refresh;
             dirty = true;
         }

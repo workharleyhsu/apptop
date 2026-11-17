@@ -2,7 +2,9 @@
 
 use std::time::Duration;
 
-use crate::apps::{App, AppKind, Sample};
+use std::collections::HashMap;
+
+use crate::apps::{App, AppKind, DetailData, Sample};
 use crate::collect::SystemStats;
 use crate::icons::GRID_ICON;
 
@@ -135,6 +137,11 @@ pub struct State {
     pub apps: Vec<App>,
     /// Totales del sistema de la última muestra.
     pub system: SystemStats,
+    pub ticks_per_second: f64,
+    /// Mediciones de la app abierta en detalle.
+    pub detail: Option<DetailData>,
+    /// Nombres de usuario ya resueltos (uid → nombre).
+    pub users: HashMap<u32, String>,
     /// Índices de `apps` en el orden en que se muestran.
     pub order: Vec<usize>,
     /// Id de la app seleccionada (sobrevive a los refrescos).
@@ -159,6 +166,9 @@ impl State {
             filter: String::new(),
             apps: Vec::new(),
             system: SystemStats::default(),
+            ticks_per_second: 100.0,
+            detail: None,
+            users: HashMap::new(),
             order: Vec::new(),
             selected: None,
             scroll: 0,
@@ -171,6 +181,10 @@ impl State {
     /// Incorpora una muestra completa (apps + sistema).
     pub fn apply(&mut self, sample: Sample) {
         self.system = sample.system;
+        if sample.ticks_per_second > 0.0 {
+            self.ticks_per_second = sample.ticks_per_second;
+        }
+        self.detail = sample.detail;
         self.set_apps(sample.apps);
     }
 
@@ -341,6 +355,34 @@ impl State {
             .min_by_key(|t| t.x.abs_diff(here.x))
             .map(|t| t.index)
             .unwrap_or(index)
+    }
+
+    /// Id de la app cuyo detalle hay que medir en la próxima muestra.
+    pub fn detail_target(&self) -> Option<&str> {
+        match self.view {
+            View::Detail => self.selected.as_deref(),
+            View::Grid => None,
+        }
+    }
+
+    /// Mediciones de detalle, solo si son de la app seleccionada.
+    pub fn detail_of_selected(&self) -> Option<&DetailData> {
+        let id = self.selected.as_ref()?;
+        self.detail.as_ref().filter(|d| &d.app_id == id)
+    }
+
+    /// Nombre del usuario `uid`; consulta al sistema una sola vez por uid.
+    pub fn user_name(&mut self, uid: u32) -> String {
+        self.users
+            .entry(uid)
+            .or_insert_with(|| {
+                nix::unistd::User::from_uid(nix::unistd::Uid::from_raw(uid))
+                    .ok()
+                    .flatten()
+                    .map(|u| u.name)
+                    .unwrap_or_else(|| uid.to_string())
+            })
+            .clone()
     }
 
     /// Entra al detalle de la app seleccionada, si hay alguna.

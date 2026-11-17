@@ -18,6 +18,26 @@ pub fn human_bytes(bytes: u64) -> String {
     }
 }
 
+/// Duración legible con dos unidades: `3d 4h`, `2h 05m`, `4m 12s`, `8s`.
+pub fn human_duration(seconds: f64) -> String {
+    let total = seconds.max(0.0) as u64;
+    let (days, hours, minutes, secs) = (
+        total / 86400,
+        total / 3600 % 24,
+        total / 60 % 60,
+        total % 60,
+    );
+    if days > 0 {
+        format!("{days}d {hours}h")
+    } else if hours > 0 {
+        format!("{hours}h {minutes:02}m")
+    } else if minutes > 0 {
+        format!("{minutes}m {secs:02}s")
+    } else {
+        format!("{secs}s")
+    }
+}
+
 /// Intervalo corto: `1s`, `0.75s`, `2.5s`.
 pub fn human_interval(interval: std::time::Duration) -> String {
     let text = format!("{:.2}", interval.as_secs_f64());
@@ -49,6 +69,15 @@ pub fn fit_center(text: &str, width: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn formats_durations() {
+        assert_eq!(human_duration(8.9), "8s");
+        assert_eq!(human_duration(252.0), "4m 12s");
+        assert_eq!(human_duration(7500.0), "2h 05m");
+        assert_eq!(human_duration(3.0 * 86400.0 + 4.0 * 3600.0 + 59.0), "3d 4h");
+        assert_eq!(human_duration(-5.0), "0s");
+    }
 
     #[test]
     fn formats_intervals() {

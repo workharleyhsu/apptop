@@ -8,6 +8,7 @@ clap = { version = "4", features = ["derive"] }
 freedesktop-desktop-entry = { version = "0.8", default-features = false }
 freedesktop-icons = "0.4"
 image = { version = "0.25", default-features = false, features = ["png"] }
+nix = { version = "0.32", default-features = false, features = ["user", "signal"] }
 procfs = { version = "0.18", default-features = false }
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 resvg = { version = "0.50", default-features = false }

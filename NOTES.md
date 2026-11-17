@@ -110,3 +110,11 @@ Decisiones y problemas, por iteración.
   se ve en la barra superior. El intervalo vive en `State` para que la tecla rija al instante.
 - Sin parpadeo: solo se dibuja si algo cambió y ratatui manda solo las celdas distintas.
   Verificado bajo pty: 0 secuencias `ESC[2J` en 7 cuadros, ~0.8 kB por refresco.
+
+## Iteración 14 — cabecera del detalle
+- `Sampler::sample_with_detail(id)` mide lo caro (por ahora PSS vía `smaps_rollup`) solo para
+  la app abierta; al entrar al detalle se fuerza una muestra inmediata.
+- Uptime = uptime del sistema − starttime del proceso más antiguo. Usuario vía
+  `nix::unistd::User::from_uid`, cacheado por uid (respeta NSS, a diferencia de leer passwd).
+- PSS ilegible (procesos ajenos) → se suman solo los legibles; ninguno legible → `n/d`.
+- `--snapshot --app <nombre>` renderiza el detalle (toma una segunda muestra con detalle).

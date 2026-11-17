@@ -246,7 +246,9 @@ fn sample_once() -> Sample {
 
 fn snapshot(width: u16, height: u16, app: Option<&str>) -> Result<String, String> {
     let mut state = State::new(Theme::detect());
-    state.apply(sample_once());
+    let mut sampler = Sampler::new();
+    sleep(Duration::from_millis(250));
+    state.apply(sampler.sample());
     if let Some(wanted) = app {
         let lower = wanted.to_lowercase();
         let found = state
@@ -263,6 +265,10 @@ fn snapshot(width: u16, height: u16, app: Option<&str>) -> Result<String, String
             .ok_or_else(|| format!("no hay ninguna app en ejecución llamada '{wanted}'"))?;
         state.selected = Some(found);
         state.enter_detail();
+        // Segunda muestra, ahora con las mediciones de detalle de esa app.
+        sleep(Duration::from_millis(250));
+        let sample = sampler.sample_with_detail(state.detail_target());
+        state.apply(sample);
     }
     Ok(render_to_text(
         width,
