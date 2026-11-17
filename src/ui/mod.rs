@@ -258,6 +258,22 @@ mod tests {
     }
 
     #[test]
+    fn grid_is_drawn_again_with_the_same_selection_after_leaving_detail() {
+        let mut state = State::new(Theme::default());
+        state.set_apps(state::tests::sample_apps());
+        state.selected = Some("Service:pipewire".into());
+        let mut store = test_store();
+        let grid_before = render_to_text(40, 16, &mut state, &mut store);
+        let scroll = state.scroll;
+        state.enter_detail();
+        let detail = render_to_text(40, 16, &mut state, &mut store);
+        assert_ne!(detail, grid_before);
+        state.back_to_grid();
+        assert_eq!(render_to_text(40, 16, &mut state, &mut store), grid_before);
+        assert_eq!(state.scroll, scroll);
+    }
+
+    #[test]
     fn detail_shows_nd_for_unknown_values_and_survives_app_exit() {
         let mut state = detail_state();
         state.detail = None;

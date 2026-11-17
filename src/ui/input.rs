@@ -242,6 +242,36 @@ mod tests {
     }
 
     #[test]
+    fn returning_from_detail_restores_the_grid_exactly() {
+        use crate::ui::state::SortKey;
+        // 12 apps en 4 columnas y una ventana baja: la última fila obliga a
+        // desplazar la grilla.
+        let mut s = laid_out(12, 0, 80, 12);
+        handle_event(&mut s, &key(KeyCode::Char('s')));
+        handle_event(&mut s, &key(KeyCode::End));
+        s.scroll = s.layout.scroll_to_show(11, 0, 12);
+        assert!(s.scroll > 0);
+        let before = (s.selected.clone(), s.scroll, s.sort, s.filter.clone());
+
+        handle_event(&mut s, &key(KeyCode::Enter));
+        // Lo que se haga dentro del detalle no toca el estado de la grilla.
+        handle_event(&mut s, &key(KeyCode::Down));
+        handle_event(&mut s, &key(KeyCode::Down));
+        assert_eq!(handle_event(&mut s, &key(KeyCode::Esc)), Outcome::Redraw);
+
+        assert_eq!(s.view, View::Grid);
+        assert_eq!(
+            (s.selected.clone(), s.scroll, s.sort, s.filter.clone()),
+            before
+        );
+        assert_eq!(s.sort, SortKey::Cpu);
+        // Backspace también vuelve.
+        handle_event(&mut s, &key(KeyCode::Enter));
+        handle_event(&mut s, &key(KeyCode::Backspace));
+        assert_eq!((s.view, s.selected_index()), (View::Grid, Some(11)));
+    }
+
+    #[test]
     fn q_and_ctrl_c_quit_from_any_view() {
         let mut s = laid_out(2, 0, 80, 24);
         assert_eq!(

@@ -163,3 +163,8 @@ Decisiones y problemas, por iteración.
 - Verificado con el kernel real: test con conexión TCP local propia, y en vivo una
   transferencia local de ~4 MB/s se midió como ↓3.8M/s ↑3.8M/s.
 - De paso: bloque de datos del detalle con etiquetas de 11 columnas y mínimo de 32.
+
+## Iteración 20 — volver a la grilla
+- `Esc`/Backspace vuelven del detalle sin tocar selección, scroll, orden ni filtro (ya salía
+  así de la iteración 10); se agregaron tests que lo fijan, incluido que el cuadro de la
+  grilla se redibuja idéntico.

@@ -29,7 +29,7 @@
 - [x] Red por app: aproximación sin root usando sockets de la app (netlink `sock_diag`
       + `/proc/<pid>/fd`). Etiquetar como "aprox." en la UI. Si no es viable, `n/d`
       y documentar el motivo en `NOTES.md`.
-- [ ] `Esc` vuelve a la grilla conservando la selección.
+- [x] `Esc` vuelve a la grilla conservando la selección.
 
 ## Fase 5 — Acciones
 - [ ] Cerrar app (SIGTERM a todo el grupo) y matar (SIGKILL), con confirmación.
