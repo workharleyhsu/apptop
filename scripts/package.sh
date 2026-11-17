@@ -23,7 +23,7 @@ fi
 
 rm -rf "${DIST:?}/$NAME"
 mkdir -p "$DIST/$NAME"
-cp "$BIN" README.md LICENSE-MIT LICENSE-APACHE "$DIST/$NAME/"
+cp "$BIN" README.md README.es.md LICENSE-MIT LICENSE-APACHE "$DIST/$NAME/"
 
 tar -C "$DIST" --owner=0 --group=0 --numeric-owner -czf "$DIST/$NAME.tar.gz" "$NAME"
 (cd "$DIST" && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
