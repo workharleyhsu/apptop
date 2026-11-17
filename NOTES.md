@@ -346,3 +346,20 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
   clave SSH de esta máquina no está aceptada por GitHub.
 - Para publicar la próxima versión: subir `version` en `Cargo.toml`, `scripts/package.sh`,
   tag `vX.Y.Z`, `gh release create vX.Y.Z dist/*`.
+
+## v0.1.1 — apps que salían como servicios en KDE Plasma
+- Reporte: en CachyOS (KDE Plasma) Steam y otras apps aparecían en "Services".
+- Causa 1: Plasma lanza las apps como `app-<id>@<hash>.service`, no como scopes, y el
+  clasificador trataba todo `.service` como servicio (así lo pedía el prompt original, que
+  no contemplaba KDE). Ahora una instancia con nombre propio es una app, y
+  `app-<id>@autostart.service` lo es solo si su `.desktop` es visible en el menú.
+- Causa 2: en Arch `steam.desktop` tiene `Exec=/usr/bin/steam-runtime` pero el proceso se
+  llama `steam`; la búsqueda por ejecutable ahora cae también al id del `.desktop`.
+- Confirmado en esta máquina con un caso real: Okular abierto desde un lanzador estilo KDE
+  (`app-org.kde.okular@<hash>.service`) pasó de servicios a apps. Steam con autostart se
+  simuló con una unidad propia (`systemd-run --user --unit=app-steam@autostart.service`).
+- Efecto colateral aceptado: un actualizador de bandeja con `.desktop` visible
+  (dnfdragora-updater) ahora figura como app.
+- No se pudo verificar en la máquina CachyOS: el `ssh` falló porque la clave tiene
+  passphrase y no hay agente. Para eso está `apptop --explain <nombre>`, que muestra cgroup,
+  unidad, `.desktop` encontrado y resultado.

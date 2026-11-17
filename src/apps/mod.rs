@@ -5,7 +5,7 @@ pub mod desktop;
 pub mod group;
 
 pub use cgroup::{classify, Unit};
-pub use desktop::{DesktopIndex, DesktopInfo};
+pub use desktop::{DesktopIndex, DesktopInfo, ExecMatch};
 pub use group::{group_apps, group_apps_with, App, AppKind, Origin};
 
 use std::time::{Duration, Instant};

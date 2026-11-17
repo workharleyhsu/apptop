@@ -1,6 +1,7 @@
 //! Interpretación de rutas de cgroup de systemd.
 //!
-//! Convención XDG para unidades de aplicaciones:
+//! Convención XDG para unidades de aplicaciones (GNOME y varios compositores
+//! usan scopes; KDE Plasma usa servicios con instancia):
 //! `app[-<lanzador>]-<AppID>-<RANDOM>.scope` y
 //! `app[-<lanzador>]-<AppID>[@<RANDOM>].service`. Los guiones propios del
 //! AppID van escapados como `\x2d`, así que los `-` literales son separadores.
@@ -109,15 +110,28 @@ pub fn classify(path: &str) -> Unit {
         return Unit::None;
     }
     if let Some(rest) = stem.strip_prefix("app-") {
-        let base = rest.split('@').next().unwrap_or(rest);
+        let (base, instance) = match rest.split_once('@') {
+            Some((base, instance)) => (base, Some(instance)),
+            None => (rest, None),
+        };
         let parts: Vec<&str> = base.split('-').collect();
-        let id = match parts.as_slice() {
-            [id] => id.to_string(),
-            [_launcher, id @ ..] => id.join("-"),
-            [] => String::new(),
+        let (launcher, id) = match parts.as_slice() {
+            [id] => (None, id.to_string()),
+            [launcher, id @ ..] => (Some(*launcher), id.join("-")),
+            [] => (None, String::new()),
         };
         if !id.is_empty() {
             let id = unescape(&id);
+            // KDE Plasma lanza las apps como servicios `app-<id>@<hash>.service`
+            // en vez de scopes: una instancia con nombre propio es una app
+            // abierta por el usuario. `@autostart` es lo que arranca solo con
+            // la sesión (applets, agentes): eso lo decide después su `.desktop`.
+            if instance.is_some_and(|i| !i.is_empty() && i != "autostart") {
+                return Unit::AppScope {
+                    app_id: id,
+                    flatpak: launcher == Some("flatpak"),
+                };
+            }
             return Unit::Service {
                 name: id.clone(),
                 user,
@@ -201,9 +215,31 @@ mod tests {
                 Some("org.kde.kdeconnect.daemon")
             )
         );
+        // Sin instancia también queda como servicio con su AppID.
+        assert_eq!(c("app-foo.service"), svc("foo", true, Some("foo")));
+    }
+
+    /// KDE Plasma: cada app abierta es `app-<id>@<hash>.service`.
+    #[test]
+    fn service_instances_launched_by_the_user_are_apps() {
+        let c = |s: &str| classify(&format!("{U}/app.slice/{s}"));
+        assert_eq!(c("app-steam@a1b2c3d4.service"), app("steam", false));
+        assert_eq!(
+            c("app-org.kde.konsole@5f0e2c91a7.service"),
+            app("org.kde.konsole", false)
+        );
         assert_eq!(
             c("app-gnome-org.gnome.Terminal@1a2b.service"),
-            svc("org.gnome.Terminal", true, Some("org.gnome.Terminal"))
+            app("org.gnome.Terminal", false)
+        );
+        assert_eq!(
+            c(r"app-google\x2dchrome@77.service"),
+            app("google-chrome", false)
+        );
+        // Lo que arranca solo con la sesión no es, de por sí, una app.
+        assert_eq!(
+            c("app-steam@autostart.service"),
+            svc("steam", true, Some("steam"))
         );
     }
 

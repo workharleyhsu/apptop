@@ -135,9 +135,9 @@ Descargá el paquete de tu distribución desde el
 instalalo desde una terminal:
 
 ```sh
-sudo apt install ./apptop_0.1.0-1_amd64.deb      # Debian, Ubuntu, Mint…
-sudo dnf install ./apptop-0.1.0-1.x86_64.rpm     # Fedora, RHEL…
-sudo zypper install ./apptop-0.1.0-1.x86_64.rpm  # openSUSE
+sudo apt install ./apptop_0.1.1-1_amd64.deb      # Debian, Ubuntu, Mint…
+sudo dnf install ./apptop-0.1.1-1.x86_64.rpm     # Fedora, RHEL…
+sudo zypper install ./apptop-0.1.1-1.x86_64.rpm  # openSUSE
 ```
 
 Se desinstala con `sudo apt remove apptop` o `sudo dnf remove apptop`.
@@ -159,9 +159,9 @@ Todas las opciones usan el mismo ejecutable estático, así que no depende de
 la versión de la distribución. También se puede desempaquetar a mano:
 
 ```sh
-tar -xzf apptop-0.1.0-x86_64-linux.tar.gz
-sha256sum -c apptop-0.1.0-x86_64-linux.tar.gz.sha256   # opcional
-install -Dm755 apptop-0.1.0-x86_64-linux/apptop ~/.local/bin/apptop
+tar -xzf apptop-0.1.1-x86_64-linux.tar.gz
+sha256sum -c apptop-0.1.1-x86_64-linux.tar.gz.sha256   # opcional
+install -Dm755 apptop-0.1.1-x86_64-linux/apptop ~/.local/bin/apptop
 ```
 
 ### Desde el código
@@ -243,6 +243,7 @@ apptop --snapshot             un cuadro de la grilla, en texto
 apptop --snapshot --app firefox --size 120x40
                               un cuadro del detalle de una app
 apptop --lang es               interfaz en español
+apptop --explain steam        por qué esos procesos se agruparon así
 apptop --print-config         configuración efectiva
 apptop --config otro.toml     usar otro archivo de configuración
 ```
@@ -276,16 +277,20 @@ valor por defecto; nunca impiden arrancar.
 
 **Agrupar procesos en apps.** Se usa el cgroup de cada proceso
 (`/proc/<pid>/cgroup`): los scopes `app-*.scope` son apps gráficas (los
-`app-flatpak-*`, Flatpak), los `*.service` son servicios de usuario o de
-sistema, y los scopes de contenedores se muestran como servicios. Varias
+`app-flatpak-*`, Flatpak), y también lo son las unidades
+`app-<id>@<instancia>.service` con las que KDE Plasma lanza las apps. El resto
+de los `*.service` son servicios de usuario o de sistema; un
+`app-<id>@autostart.service` cuenta como app solo si su `.desktop` figura en el
+menú (Steam iniciado con la sesión es una app; un agente de la bandeja, un
+servicio). Los scopes de contenedores se muestran como servicios. Varias
 ventanas de la misma app se juntan en una sola. Si un programa con su propio
 `.desktop` fue lanzado desde otra app (un navegador abierto desde una
 terminal), se separa como app propia. Lo que no tiene un cgroup útil se agrupa
 por ejecutable y árbol de padres.
 
-**Nombre e icono.** Salen del archivo `.desktop`, buscado por el nombre del
-scope, `StartupWMClass` o `Exec`. El icono se localiza en el tema activo, con
-respaldo en hicolor y pixmaps.
+**Nombre e icono.** Salen del archivo `.desktop`, buscado por el nombre de la
+unidad, `StartupWMClass`, el programa de `Exec` o el nombre del ejecutable. El
+icono se localiza en el tema activo, con respaldo en hicolor y pixmaps.
 
 **Iconos.** El SVG o PNG se rasteriza, se recorta a su contenido, se detectan
 la silueta (canal alfa) y los bordes de color internos (Sobel con supresión de

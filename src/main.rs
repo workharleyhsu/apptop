@@ -6,7 +6,10 @@ use std::time::Duration;
 
 use clap::Parser;
 
-use apptop::apps::{group_apps_with, AppKind, DesktopIndex, Sample, Sampler};
+use apptop::apps::group::exe_name;
+use apptop::apps::{
+    classify, group_apps_with, AppKind, DesktopIndex, ExecMatch, Sample, Sampler, Unit,
+};
 use apptop::collect::Collector;
 use apptop::config::{Config, Warning};
 use apptop::i18n::Lang;
@@ -73,6 +76,12 @@ struct Cli {
     #[arg(long, hide = true)]
     panic_test: bool,
 
+    /// Explain how the processes matching NAME were grouped: their cgroup,
+    /// the unit it maps to and the `.desktop` entry that was matched. Useful
+    /// when an app shows up in the wrong section.
+    #[arg(long, value_name = "NAME")]
+    explain: Option<String>,
+
     /// Print every process that was read (debugging).
     #[arg(long)]
     list_procs: bool,
@@ -132,6 +141,10 @@ fn main() {
                 std::process::exit(1);
             }
         }
+        return;
+    }
+    if let Some(name) = &cli.explain {
+        explain(name);
         return;
     }
     if cli.list_procs {
@@ -348,4 +361,97 @@ fn snapshot(
         &mut state,
         &mut options.new_store(),
     ))
+}
+
+/// Diagnóstico de agrupación (`--explain`). Salida técnica, solo en inglés:
+/// está pensada para pegarla en un reporte de error.
+fn explain(name: &str) {
+    let index = DesktopIndex::load();
+    let procs = Collector::new().sample();
+    let apps = group_apps_with(procs.clone(), Some(&index));
+    let wanted = name.to_lowercase();
+    let group_of = |pid: i32| apps.iter().find(|a| a.procs.iter().any(|p| p.pid == pid));
+
+    let mut shown = 0;
+    for p in procs.iter().filter(|p| !p.kthread) {
+        let exe = exe_name(p);
+        let group = group_of(p.pid);
+        let hit = p.name.to_lowercase().contains(&wanted)
+            || exe.to_lowercase().contains(&wanted)
+            || group.is_some_and(|g| g.name.to_lowercase().contains(&wanted));
+        if !hit {
+            continue;
+        }
+        shown += 1;
+        let path = p.exe.as_ref().map(|e| e.display().to_string());
+        println!("pid {} ({})", p.pid, p.name);
+        println!(
+            "  exe      {}",
+            path.as_deref().unwrap_or("n/a (not readable)")
+        );
+        println!("  cgroup   {}", p.cgroup.as_deref().unwrap_or("n/a"));
+        let unit = p.cgroup.as_deref().map(classify).unwrap_or(Unit::None);
+        match &unit {
+            Unit::AppScope { app_id, flatpak } => {
+                let kind = if *flatpak { "flatpak app" } else { "app" };
+                println!("  unit     {kind} unit, AppID '{app_id}'");
+                match index.by_app_id(app_id) {
+                    Some(d) => println!("  desktop  {} (matched by AppID)", d.path.display()),
+                    None => println!("  desktop  none for AppID '{app_id}'"),
+                }
+            }
+            Unit::Service { name, user, app_id } => {
+                let owner = if *user { "user" } else { "system" };
+                println!("  unit     {owner} service '{name}'");
+                if let Some(app_id) = app_id {
+                    match index.by_app_id(app_id) {
+                        Some(d) if d.visible => println!(
+                            "  desktop  {} (visible in the menu: treated as an app)",
+                            d.path.display()
+                        ),
+                        Some(d) => println!(
+                            "  desktop  {} (NoDisplay: stays a service)",
+                            d.path.display()
+                        ),
+                        None => println!("  desktop  none for AppID '{app_id}': stays a service"),
+                    }
+                }
+            }
+            Unit::Container { runtime, id } => println!("  unit     {runtime} container {id}"),
+            Unit::None => {
+                println!("  unit     none useful (session scope, transient unit or root)")
+            }
+        }
+        match index.match_exec(&exe) {
+            Some((d, ExecMatch::ExecLine)) => {
+                println!(
+                    "  by exe   '{exe}' is the Exec= program of {}",
+                    d.path.display()
+                )
+            }
+            Some((d, ExecMatch::DesktopId)) => {
+                println!("  by exe   '{exe}' is the id of {}", d.path.display())
+            }
+            None => println!("  by exe   '{exe}' matches no visible .desktop entry"),
+        }
+        match group {
+            Some(g) => {
+                let section = match g.kind {
+                    AppKind::App => "Applications",
+                    AppKind::Service => "Services",
+                };
+                println!(
+                    "  result   '{}' in {section} [{}], {} processes",
+                    g.name,
+                    g.id,
+                    g.procs.len()
+                );
+            }
+            None => println!("  result   not shown"),
+        }
+        println!();
+    }
+    if shown == 0 {
+        println!("no process, executable or app matches '{name}'");
+    }
 }

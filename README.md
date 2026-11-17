@@ -133,9 +133,9 @@ Download the package for your distribution from the
 or install it from a terminal:
 
 ```sh
-sudo apt install ./apptop_0.1.0-1_amd64.deb      # Debian, Ubuntu, Mint…
-sudo dnf install ./apptop-0.1.0-1.x86_64.rpm     # Fedora, RHEL…
-sudo zypper install ./apptop-0.1.0-1.x86_64.rpm  # openSUSE
+sudo apt install ./apptop_0.1.1-1_amd64.deb      # Debian, Ubuntu, Mint…
+sudo dnf install ./apptop-0.1.1-1.x86_64.rpm     # Fedora, RHEL…
+sudo zypper install ./apptop-0.1.1-1.x86_64.rpm  # openSUSE
 ```
 
 Uninstall with `sudo apt remove apptop` or `sudo dnf remove apptop`.
@@ -157,9 +157,9 @@ Every option uses the same static executable, so it does not depend on your
 distribution's version. You can also unpack it yourself:
 
 ```sh
-tar -xzf apptop-0.1.0-x86_64-linux.tar.gz
-sha256sum -c apptop-0.1.0-x86_64-linux.tar.gz.sha256   # optional
-install -Dm755 apptop-0.1.0-x86_64-linux/apptop ~/.local/bin/apptop
+tar -xzf apptop-0.1.1-x86_64-linux.tar.gz
+sha256sum -c apptop-0.1.1-x86_64-linux.tar.gz.sha256   # optional
+install -Dm755 apptop-0.1.1-x86_64-linux/apptop ~/.local/bin/apptop
 ```
 
 ### From source
@@ -241,12 +241,16 @@ apptop --dump-icon firefox    converted icon (--large for the big size)
 apptop --snapshot             one frame of the grid, as text
 apptop --snapshot --app firefox --size 120x40
                               one frame of an app's detail view
+apptop --explain steam        why the matching processes were grouped that way
 apptop --print-config         effective configuration
 apptop --config other.toml    use another configuration file
 ```
 
 `--list`, `--dump-icon` and `--snapshot` do not need a terminal: they are meant
 for scripts and for checking what apptop detects.
+
+If an app shows up in the wrong section or under the wrong name, please attach
+the output of `apptop --explain <name>` to the bug report.
 
 ## Configuration
 
@@ -273,15 +277,18 @@ The interface is in English by default and also available in Spanish.
 
 **Grouping processes into apps.** Each process's cgroup
 (`/proc/<pid>/cgroup`) decides: `app-*.scope` units are graphical apps
-(`app-flatpak-*` ones are Flatpaks), `*.service` units are user or system
-services, and container scopes are shown as services. Several windows of the
+(`app-flatpak-*` ones are Flatpaks), and so are the `app-<id>@<instance>.service`
+units KDE Plasma uses to launch apps. Other `*.service` units are user or
+system services; an `app-<id>@autostart.service` counts as an app only if its
+`.desktop` entry is visible in the menu (so Steam started at login is an app,
+a tray agent is a service). Container scopes are shown as services. Several windows of the
 same app are merged into one. If a program with its own `.desktop` file was
 started from another app (a browser launched from a terminal), it is split out
 as its own app. Whatever has no useful cgroup is grouped by executable and
 parent tree.
 
-**Name and icon.** They come from the `.desktop` file, looked up by scope name,
-`StartupWMClass` or `Exec`. The icon is located in the active theme, falling
+**Name and icon.** They come from the `.desktop` file, looked up by unit name,
+`StartupWMClass`, the `Exec` program or the executable's name. The icon is located in the active theme, falling
 back to hicolor and pixmaps.
 
 **Icons.** The SVG or PNG is rasterised and cropped to its content; the

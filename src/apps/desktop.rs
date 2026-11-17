@@ -17,6 +17,9 @@ pub struct DesktopInfo {
     pub icon: Option<String>,
     /// Ruta del archivo `.desktop`.
     pub path: PathBuf,
+    /// Aparece en el menú de aplicaciones (no es `NoDisplay`): es algo que
+    /// el usuario reconoce como una app y no un agente de fondo.
+    pub visible: bool,
 }
 
 /// Ejecutables genéricos que no identifican a ninguna aplicación.
@@ -46,6 +49,15 @@ const GENERIC_EXECS: &[&str] = &[
     "electron",
 ];
 
+/// Cómo se asoció un ejecutable con un `.desktop`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecMatch {
+    /// El programa de la línea `Exec=`.
+    ExecLine,
+    /// El nombre del ejecutable es el id del `.desktop`.
+    DesktopId,
+}
+
 #[derive(Default)]
 pub struct DesktopIndex {
     entries: Vec<Arc<DesktopInfo>>,
@@ -54,6 +66,10 @@ pub struct DesktopIndex {
     by_wm_class: HashMap<String, usize>,
     /// Nombre del ejecutable → (entrada, puntaje de la coincidencia).
     by_exec: HashMap<String, (usize, u8)>,
+    /// Id del `.desktop` (y su último segmento), en minúsculas → entrada.
+    /// Solo apps gráficas visibles. Respaldo de `by_exec` para cuando el
+    /// proceso no se llama como el lanzador de `Exec=`.
+    by_program_id: HashMap<String, usize>,
 }
 
 /// Directorios `applications` según XDG, en orden de prioridad.
@@ -162,6 +178,7 @@ impl DesktopIndex {
             name,
             icon: entry.icon().filter(|i| !i.is_empty()).map(str::to_string),
             path: entry.path.clone(),
+            visible: !entry.no_display(),
         }));
         self.by_id.insert(key.clone(), idx);
 
@@ -176,6 +193,8 @@ impl DesktopIndex {
         // Solo apps gráficas visibles identifican procesos por ejecutable:
         // `fish.desktop` o `htop.desktop` no deben partir una terminal.
         if listed && !entry.terminal() {
+            self.by_program_id.entry(key.clone()).or_insert(idx);
+            self.by_program_id.entry(tail.clone()).or_insert(idx);
             if let Some((program, plain)) = entry.exec().and_then(exec_program) {
                 let program_key = program.to_lowercase();
                 let score =
@@ -221,9 +240,25 @@ impl DesktopIndex {
             .and_then(|i| self.get(*i))
     }
 
-    /// Busca por nombre de ejecutable según la línea `Exec=`.
+    /// Busca la app a la que pertenece un ejecutable.
+    ///
+    /// Primero por el programa de la línea `Exec=`. Si no coincide, por el
+    /// id del `.desktop`: en Arch `steam.desktop` lanza `steam-runtime`, pero
+    /// el proceso que queda corriendo se llama `steam`.
     pub fn by_exec(&self, program: &str) -> Option<Arc<DesktopInfo>> {
-        self.by_exec.get(program).and_then(|(i, _)| self.get(*i))
+        self.match_exec(program).map(|(info, _)| info)
+    }
+
+    /// Como [`DesktopIndex::by_exec`], indicando además cómo coincidió.
+    pub fn match_exec(&self, program: &str) -> Option<(Arc<DesktopInfo>, ExecMatch)> {
+        if let Some((i, _)) = self.by_exec.get(program) {
+            return self.get(*i).map(|info| (info, ExecMatch::ExecLine));
+        }
+        if GENERIC_EXECS.contains(&program) {
+            return None;
+        }
+        let i = self.by_program_id.get(&program.to_lowercase())?;
+        self.get(*i).map(|info| (info, ExecMatch::DesktopId))
     }
 }
 
@@ -300,6 +335,48 @@ pub(crate) mod tests {
             index.by_exec("systemsettings").unwrap().id,
             "systemsettings"
         );
+    }
+
+    /// Caso real de Arch/CachyOS: el `.desktop` lanza un script con otro
+    /// nombre que el proceso que queda corriendo.
+    #[test]
+    fn falls_back_to_the_desktop_id_when_exec_names_a_wrapper() {
+        let (_tmp, index) = index_with(&[
+            (
+                "steam.desktop",
+                "Name=Steam\nExec=/usr/bin/steam-runtime %U\nIcon=steam",
+            ),
+            (
+                "org.gnome.Nautilus.desktop",
+                "Name=Files\nExec=nautilus-wrapper --new-window\nIcon=nautilus",
+            ),
+            (
+                "htop.desktop",
+                "Name=Htop\nExec=htop-launch\nTerminal=true\nIcon=htop",
+            ),
+            (
+                "agent.desktop",
+                "Name=Agent\nExec=agent-launch\nNoDisplay=true",
+            ),
+            (
+                "python3.desktop",
+                "Name=Python\nExec=python-launch\nIcon=python",
+            ),
+        ]);
+        let (steam, how) = index.match_exec("steam").unwrap();
+        assert_eq!((steam.id.as_str(), how), ("steam", ExecMatch::DesktopId));
+        assert_eq!(
+            index.match_exec("steam-runtime").unwrap().1,
+            ExecMatch::ExecLine
+        );
+        // Último segmento del id, sin distinguir mayúsculas.
+        assert_eq!(index.by_exec("nautilus").unwrap().id, "org.gnome.Nautilus");
+        // Ni apps de terminal, ni ocultas, ni intérpretes genéricos.
+        assert!(index.by_exec("htop").is_none());
+        assert!(index.by_exec("agent").is_none());
+        assert!(index.by_exec("python3").is_none());
+        assert!(steam.visible);
+        assert!(!index.by_app_id("agent").unwrap().visible);
     }
 
     #[test]

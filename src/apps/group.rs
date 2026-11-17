@@ -138,6 +138,15 @@ fn key_for_unit(unit: Unit, index: Option<&DesktopIndex>) -> Option<Key> {
                 Some(id) => i.by_app_id(id),
                 None => i.by_exact_id(&name),
             });
+            // `app-<id>@autostart.service`: si su `.desktop` figura en el
+            // menú es una app que arranca sola (Steam, Discord...), no un
+            // agente de fondo. Usa la misma clave que la app lanzada a mano,
+            // así no aparece dos veces.
+            if let (Some(id), Some(d)) = (&app_id, &desktop) {
+                if d.visible {
+                    return Some(Key::for_desktop(d.clone(), Origin::Scope, Some(id.clone())));
+                }
+            }
             // Un servicio corriente conserva el nombre de su unidad; el
             // `.desktop` solo le presta el icono.
             let shown = match (&app_id, &desktop) {
@@ -532,6 +541,124 @@ pub(crate) mod tests {
         );
         assert_eq!(apps[0].name, "KDE Connect");
         assert_eq!(apps[0].kind, AppKind::Service);
+    }
+
+    /// KDE Plasma: apps como `app-<id>@<hash>.service`, y Steam con inicio
+    /// automático como `app-steam@autostart.service`.
+    #[test]
+    fn kde_style_service_units_are_apps_when_the_desktop_entry_is_visible() {
+        use crate::apps::desktop::tests::index_with;
+        let (_tmp, index) = index_with(&[
+            (
+                "steam.desktop",
+                "Name=Steam\nExec=/usr/bin/steam-runtime %U\nIcon=steam",
+            ),
+            (
+                "org.kde.konsole.desktop",
+                "Name=Konsole\nExec=konsole\nIcon=utilities-terminal",
+            ),
+            (
+                "nm-applet.desktop",
+                "Name=Network\nExec=nm-applet\nNoDisplay=true\nIcon=nm",
+            ),
+        ]);
+        let unit = |name: &str| format!("{APP}/{name}");
+        let procs = vec![
+            // Steam arrancado con la sesión, con su árbol de procesos.
+            proc(
+                10,
+                1,
+                "/home/u/.local/share/Steam/ubuntu12_32/steam",
+                &unit("app-steam@autostart.service"),
+            ),
+            proc(
+                11,
+                10,
+                "/home/u/.local/share/Steam/steamwebhelper",
+                &unit("app-steam@autostart.service"),
+            ),
+            // Otra instancia abierta desde el menú: mismo grupo.
+            proc(
+                20,
+                1,
+                "/usr/lib/steam/steam",
+                &unit("app-steam@9f3c2a.service"),
+            ),
+            proc(
+                30,
+                1,
+                "/usr/bin/konsole",
+                &unit("app-org.kde.konsole@77aa.service"),
+            ),
+            proc(
+                31,
+                30,
+                "/usr/bin/fish",
+                &unit("app-org.kde.konsole@77aa.service"),
+            ),
+            // Applet oculto del menú: sigue siendo servicio.
+            proc(
+                40,
+                1,
+                "/usr/bin/nm-applet",
+                &unit("app-nm\\x2dapplet@autostart.service"),
+            ),
+            // Autostart sin `.desktop` conocido: servicio.
+            proc(
+                50,
+                1,
+                "/usr/bin/agente",
+                &unit("app-agente@autostart.service"),
+            ),
+            // App lanzada desde el menú sin `.desktop`: app igual.
+            proc(60, 1, "/opt/x/juego", &unit("app-juego@1234.service")),
+        ];
+        let apps = group_apps_with(procs, Some(&index));
+        let names: Vec<&String> = apps.iter().map(|a| &a.name).collect();
+        let find = |name: &str| {
+            apps.iter()
+                .find(|a| a.name == name)
+                .unwrap_or_else(|| panic!("{name}: {names:?}"))
+        };
+        assert_eq!(find("Steam").kind, AppKind::App);
+        assert_eq!(find("Steam").pids(), vec![10, 11, 20]);
+        assert_eq!(
+            find("Steam").desktop.as_ref().unwrap().icon.as_deref(),
+            Some("steam")
+        );
+        assert_eq!(find("Konsole").kind, AppKind::App);
+        assert_eq!(find("Konsole").pids(), vec![30, 31]);
+        assert_eq!(find("Network").kind, AppKind::Service);
+        assert_eq!(find("agente").kind, AppKind::Service);
+        assert_eq!(find("juego").kind, AppKind::App);
+        assert_eq!(apps.len(), 5);
+    }
+
+    /// Sin cgroup de app (sesión sin scopes): Steam se reconoce por el nombre
+    /// del ejecutable aunque `Exec=` nombre a un lanzador distinto.
+    #[test]
+    fn an_app_without_a_cgroup_is_found_by_its_executable_name() {
+        use crate::apps::desktop::tests::index_with;
+        let (_tmp, index) = index_with(&[(
+            "steam.desktop",
+            "Name=Steam\nExec=/usr/bin/steam-runtime %U\nIcon=steam",
+        )]);
+        let session = "/user.slice/user-1000.slice/session-2.scope";
+        let apps = group_apps_with(
+            vec![
+                proc(1, 0, "/usr/bin/startplasma-wayland", session),
+                proc(
+                    2,
+                    1,
+                    "/home/u/.local/share/Steam/ubuntu12_32/steam",
+                    session,
+                ),
+                proc(3, 2, "/home/u/.local/share/Steam/steamwebhelper", session),
+            ],
+            Some(&index),
+        );
+        let steam = apps.iter().find(|a| a.name == "Steam").expect("Steam");
+        assert_eq!((steam.kind, steam.pids()), (AppKind::App, vec![2, 3]));
     }
 
     #[test]
