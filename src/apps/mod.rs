@@ -10,7 +10,9 @@ pub use group::{group_apps, group_apps_with, App, AppKind, Origin};
 
 use std::time::Instant;
 
-use crate::collect::{Collector, IoReading, IoTracker, SystemSampler, SystemStats};
+use crate::collect::{
+    Collector, GpuReading, GpuTracker, IoReading, IoTracker, SystemSampler, SystemStats,
+};
 
 /// Resultado de una muestra: apps agrupadas y totales del sistema.
 #[derive(Debug, Clone, Default)]
@@ -32,6 +34,8 @@ pub struct DetailData {
     pub pss: Option<u64>,
     /// Lectura y escritura a disco por segundo.
     pub io: IoReading,
+    /// Uso de GPU y memoria de vídeo.
+    pub gpu: GpuReading,
 }
 
 /// Toma muestras de procesos y las entrega ya agrupadas en apps.
@@ -40,6 +44,7 @@ pub struct Sampler {
     system: SystemSampler,
     index: DesktopIndex,
     io: IoTracker,
+    gpu: GpuTracker,
     /// App medida en detalle la vez anterior.
     detail_id: Option<String>,
 }
@@ -57,6 +62,7 @@ impl Sampler {
             system,
             index: DesktopIndex::load(),
             io: IoTracker::new(),
+            gpu: GpuTracker::new(),
             detail_id: None,
         }
     }
@@ -84,6 +90,7 @@ impl Sampler {
         // Al cambiar de app las referencias anteriores no sirven.
         if self.detail_id.as_deref() != Some(app.id.as_str()) {
             self.io = IoTracker::new();
+            self.gpu = GpuTracker::new();
             self.detail_id = Some(app.id.clone());
         }
         let ids: Vec<(i32, u64)> = app.procs.iter().map(|p| (p.pid, p.starttime)).collect();
@@ -97,6 +104,7 @@ impl Sampler {
             app_id: app.id.clone(),
             pss: (!pss.is_empty()).then(|| pss.iter().sum()),
             io: self.io.sample(&ids, Instant::now()),
+            gpu: self.gpu.sample(&app.pids(), Instant::now()),
         }
     }
 

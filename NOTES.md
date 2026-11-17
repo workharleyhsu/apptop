@@ -140,3 +140,14 @@ Decisiones y problemas, por iteración.
   sumados sobre los procesos de la app abierta. Tres estados: tasa, "midiendo…" (primera
   lectura) y `n/d (sin permiso)` — `io` solo es legible para procesos propios.
 - Un pid nuevo o reciclado solo fija referencia; lo escrito por procesos ya muertos se pierde.
+
+## Iteración 18 — GPU
+- Solo se lee el fdinfo de descriptores cuyo enlace apunta a `/dev/dri/*` (no el de cada
+  archivo abierto). Clientes deduplicados por `drm-pdev` + `drm-client-id` entre procesos.
+- GPU % = Δns del motor / Δt, sumado entre clientes y dividido por `drm-engine-capacity-*`;
+  se muestra el motor más ocupado con su nombre. Memoria: región `vram` si existe (dedicada),
+  si no la suma de `drm-resident-*` (integrada, etiquetada "RAM").
+- **AMD no verificado en hardware**: esta máquina tiene Intel i915. amdgpu se cubre con un
+  fixture con el formato de la documentación del kernel; i915 se verificó en vivo
+  (Firefox reproduciendo vídeo: "21% video").
+- Estados: tasa, "midiendo…", "sin uso" (legible y sin DRM) y `n/d (sin permiso)`.

@@ -204,6 +204,14 @@ mod tests {
                 read_bps: 2_400_000.0,
                 write_bps: 350_000.0,
             }),
+            gpu: crate::collect::GpuReading::Stats(crate::collect::GpuStats {
+                busy_pct: 18.0,
+                engine: "gfx".into(),
+                memory: 512 << 20,
+                dedicated: true,
+                driver: "amdgpu".into(),
+                clients: 2,
+            }),
         });
         // Historial de 90 s: CPU en rampa con un pico, RAM creciendo.
         for t in 0..90 {

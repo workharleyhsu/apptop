@@ -13,7 +13,7 @@ apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servi
 ⢸                      ⡇  CPU       23.5%
 ⢸                      ⡇  RAM       5.3G  (PSS 1.2G)              ⣀⣀⣀⣀⣤⣤⣤⣤⣴⣶⣶⣶⣾⣿
 ⢸                      ⡇  Disco     L 2.3M/s  E 342K/s         ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠔⠁                                       ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠔⠁  GPU       18% gfx · VRAM 512M        ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
                                                                ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
 
      PID  PROCESO                                  CPU%     RAM HILOS  ESTADO

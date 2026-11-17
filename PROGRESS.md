@@ -24,7 +24,7 @@
 - [x] Árbol de procesos de la app con CPU, RAM, hilos y estado por proceso.
 - [x] Gráficos históricos de CPU y RAM (braille, últimos ~2 min).
 - [x] Disco: lectura/escritura por segundo desde `/proc/<pid>/io`.
-- [ ] GPU/VRAM por proceso desde `/proc/<pid>/fdinfo` (claves `drm-engine-*`,
+- [x] GPU/VRAM por proceso desde `/proc/<pid>/fdinfo` (claves `drm-engine-*`,
       `drm-memory-*`; objetivo principal: AMD). Deduplicar por `drm-client-id`.
 - [ ] Red por app: aproximación sin root usando sockets de la app (netlink `sock_diag`
       + `/proc/<pid>/fd`). Etiquetar como "aprox." en la UI. Si no es viable, `n/d`

@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 
 use crate::apps::{App, AppKind};
-use crate::collect::IoReading;
+use crate::collect::{GpuReading, GpuStats, IoReading};
 use crate::icons::{IconStore, DETAIL_ICON};
 
 use super::bars::write_spans;
@@ -103,6 +103,32 @@ fn disk_text(reading: Option<IoReading>) -> String {
     }
 }
 
+/// Texto de la fila de GPU: porcentaje del motor más ocupado y memoria.
+fn gpu_text(reading: Option<&GpuReading>) -> String {
+    let memory = |stats: &GpuStats| {
+        // Solo una GPU dedicada tiene VRAM propia; una integrada usa RAM.
+        if stats.dedicated {
+            format!("VRAM {}", human_bytes(stats.memory))
+        } else {
+            format!("{} RAM", human_bytes(stats.memory))
+        }
+    };
+    match reading {
+        Some(GpuReading::Stats(stats)) => {
+            format!(
+                "{:.0}% {} · {}",
+                stats.busy_pct,
+                stats.engine,
+                memory(stats)
+            )
+        }
+        Some(GpuReading::Warming(stats)) => format!("midiendo… · {}", memory(stats)),
+        Some(GpuReading::NotUsed) => "sin uso".to_string(),
+        Some(GpuReading::Unavailable) => "n/d (sin permiso)".to_string(),
+        None => "midiendo…".to_string(),
+    }
+}
+
 fn kind_label(app: &App) -> String {
     let kind = match app.kind {
         AppKind::App => "aplicación",
@@ -180,6 +206,11 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
         (
             "Disco",
             disk_text(state.detail_of_selected().map(|d| d.io)),
+            theme.text(),
+        ),
+        (
+            "GPU",
+            gpu_text(state.detail_of_selected().map(|d| &d.gpu)),
             theme.text(),
         ),
     ];
@@ -347,6 +378,36 @@ mod tests {
         assert_eq!(disk_text(Some(IoReading::Unavailable)), "n/d (sin permiso)");
         assert_eq!(disk_text(Some(IoReading::Warming)), "midiendo…");
         assert_eq!(disk_text(None), "midiendo…");
+    }
+
+    #[test]
+    fn gpu_row_covers_every_reading() {
+        let stats = GpuStats {
+            busy_pct: 12.4,
+            engine: "gfx".into(),
+            memory: 344 << 20,
+            dedicated: true,
+            driver: "amdgpu".into(),
+            clients: 1,
+        };
+        assert_eq!(
+            gpu_text(Some(&GpuReading::Stats(stats.clone()))),
+            "12% gfx · VRAM 344M"
+        );
+        let integrated = GpuStats {
+            dedicated: false,
+            ..stats.clone()
+        };
+        assert_eq!(
+            gpu_text(Some(&GpuReading::Warming(integrated))),
+            "midiendo… · 344M RAM"
+        );
+        assert_eq!(gpu_text(Some(&GpuReading::NotUsed)), "sin uso");
+        assert_eq!(
+            gpu_text(Some(&GpuReading::Unavailable)),
+            "n/d (sin permiso)"
+        );
+        assert_eq!(gpu_text(None), "midiendo…");
     }
 
     #[test]
