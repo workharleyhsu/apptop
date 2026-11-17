@@ -50,7 +50,10 @@ pub fn classify(path: &str) -> Unit {
     let user = path
         .split('/')
         .any(|c| c.starts_with("user@") && c.ends_with(".service"));
-    // La unidad más profunda manda; `user@N.service` solo cuenta si no hay otra.
+    // La unidad más profunda manda; `user@N.service` solo cuenta si no hay
+    // otra. Excepción: una vez dentro de una unidad de app, los scopes que
+    // la propia app crea adentro (Konsole hace `main.scope` y uno
+    // `tab(<pid>).scope` por pestaña) siguen siendo esa app.
     let mut unit = None;
     let mut manager = None;
     for comp in path.split('/') {
@@ -58,7 +61,7 @@ pub fn classify(path: &str) -> Unit {
             if comp.starts_with("user@") && comp.ends_with(".service") {
                 manager = Some(comp);
                 unit = None;
-            } else {
+            } else if !unit.is_some_and(|u: &str| u.starts_with("app-")) {
                 unit = Some(comp);
             }
         }
@@ -217,6 +220,26 @@ mod tests {
         );
         // Sin instancia también queda como servicio con su AppID.
         assert_eq!(c("app-foo.service"), svc("foo", true, Some("foo")));
+    }
+
+    /// Konsole (visto en CachyOS): dentro de su scope crea `main.scope` y un
+    /// `tab(<pid>).scope` por pestaña. Todo eso sigue siendo Konsole.
+    #[test]
+    fn scopes_nested_inside_an_app_unit_belong_to_that_app() {
+        let c = |s: &str| classify(&format!("{U}/app.slice/{s}"));
+        let konsole = app("org.kde.konsole", false);
+        assert_eq!(c("app-org.kde.konsole-97036.scope/main.scope"), konsole);
+        assert_eq!(
+            c("app-org.kde.konsole-97036.scope/tab(97044).scope"),
+            konsole
+        );
+        assert_eq!(c("app-org.kde.konsole@77aa.service/tab(5).scope"), konsole);
+        // Fuera de una unidad de app sigue mandando la más profunda.
+        assert_eq!(
+            classify("/system.slice/systemd-udevd.service/udev"),
+            svc("systemd-udevd", false, None)
+        );
+        assert_eq!(c("otra.service/app-x-1.scope"), app("x", false));
     }
 
     /// KDE Plasma: cada app abierta es `app-<id>@<hash>.service`.

@@ -120,6 +120,13 @@ fn locales_from_env() -> Vec<String> {
     out
 }
 
+/// `firefox (1)` → `firefox`. `None` si no termina en ` (<número>)`.
+fn strip_copy_suffix(id: &str) -> Option<&str> {
+    let (base, number) = id.strip_suffix(')')?.rsplit_once(" (")?;
+    (!base.is_empty() && !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit()))
+        .then_some(base)
+}
+
 /// Nombre del ejecutable al que apunta una línea `Exec=`, si identifica una app.
 fn exec_program(exec: &str) -> Option<(String, bool)> {
     let mut tokens = exec.split_whitespace().peekable();
@@ -224,6 +231,15 @@ impl DesktopIndex {
 
     /// Busca por AppID: id exacto, último segmento del id, o `StartupWMClass`.
     pub fn by_app_id(&self, app_id: &str) -> Option<Arc<DesktopInfo>> {
+        self.lookup_app_id(app_id).or_else(|| {
+            // KDE nombra `firefox (1)` al lanzador duplicado de una app: el
+            // AppID llega con ese sufijo y no existe ningún `.desktop` así.
+            let base = strip_copy_suffix(app_id)?;
+            self.lookup_app_id(base)
+        })
+    }
+
+    fn lookup_app_id(&self, app_id: &str) -> Option<Arc<DesktopInfo>> {
         let key = app_id.to_lowercase();
         self.by_id
             .get(&key)
@@ -377,6 +393,22 @@ pub(crate) mod tests {
         assert!(index.by_exec("python3").is_none());
         assert!(steam.visible);
         assert!(!index.by_app_id("agent").unwrap().visible);
+    }
+
+    /// Visto en CachyOS/KDE: `app-firefox\x20\x281\x29@<hash>.service`.
+    #[test]
+    fn app_ids_of_duplicated_launchers_resolve_to_the_original() {
+        let (_tmp, index) = index_with(SAMPLE);
+        assert_eq!(
+            index.by_app_id("firefox (1)").unwrap().id,
+            "org.mozilla.firefox"
+        );
+        assert_eq!(index.by_app_id("Alacritty (12)").unwrap().id, "Alacritty");
+        assert!(index.by_app_id("nope (1)").is_none());
+        assert_eq!(strip_copy_suffix("a (b)"), None);
+        assert_eq!(strip_copy_suffix("a ()"), None);
+        assert_eq!(strip_copy_suffix(" (1)"), None);
+        assert_eq!(strip_copy_suffix("firefox"), None);
     }
 
     #[test]

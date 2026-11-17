@@ -634,6 +634,30 @@ pub(crate) mod tests {
         assert_eq!(apps.len(), 5);
     }
 
+    /// Dos casos vistos en CachyOS: un auxiliar de Firefox en la unidad del
+    /// lanzador duplicado `firefox (1)`, y la shell de una pestaña de Konsole.
+    #[test]
+    fn duplicated_launchers_and_nested_scopes_do_not_create_extra_groups() {
+        use crate::apps::desktop::tests::{index_with, SAMPLE};
+        let (_tmp, index) = index_with(SAMPLE);
+        let fx = format!("{APP}/app-firefox\\x20\\x281\\x29@1c24.service");
+        let kon = format!("{APP}/app-alacritty-97036.scope");
+        let procs = vec![
+            proc(1, 0, "/usr/lib/firefox/firefox", &fx),
+            // Otro ejecutable: sin la corrección quedaba solo, como "firefox (1)".
+            proc(2, 1, "/usr/lib/firefox/crashhelper", &fx),
+            proc(10, 0, "/usr/bin/alacritty", &format!("{kon}/main.scope")),
+            proc(11, 10, "/usr/bin/fish", &format!("{kon}/tab(11).scope")),
+            proc(12, 11, "/usr/bin/cargo", &format!("{kon}/tab(11).scope")),
+        ];
+        let apps = group_apps_with(procs, Some(&index));
+        let names: Vec<&str> = apps.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(names, vec!["Alacritty", "Zorro"]);
+        assert_eq!(apps[0].pids(), vec![10, 11, 12]);
+        assert_eq!(apps[0].origin, Origin::Scope);
+        assert_eq!(apps[1].pids(), vec![1, 2]);
+    }
+
     /// Sin cgroup de app (sesión sin scopes): Steam se reconoce por el nombre
     /// del ejecutable aunque `Exec=` nombre a un lanzador distinto.
     #[test]

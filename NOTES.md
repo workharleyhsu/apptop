@@ -363,3 +363,15 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
 - No se pudo verificar en la máquina CachyOS: el `ssh` falló porque la clave tiene
   passphrase y no hay agente. Para eso está `apptop --explain <nombre>`, que muestra cgroup,
   unidad, `.desktop` encontrado y resultado.
+
+## Pendiente de publicar — dos ajustes vistos en CachyOS (KDE Plasma)
+- Con acceso SSH se confirmó el diagnóstico de v0.1.1: Steam era
+  `app-steam@autostart.service` y Brave/Dolphin `app-<id>@<hash>.service`. Con 0.1.1 ya
+  salen en apps.
+- `firefox (1)` aparecía como app aparte: KDE usa ese AppID para un lanzador duplicado
+  (`app-firefox\x20\x281\x29@<hash>.service`) y no existe un `.desktop` con ese nombre.
+  `by_app_id` ahora reintenta sin el sufijo ` (N)`.
+- Konsole crea scopes propios dentro del suyo (`main.scope`, `tab(<pid>).scope`); se tomaba
+  el más profundo y quedaba como "proceso". Dentro de una unidad `app-*` ya no se baja más.
+- Verificado en CachyOS con un binario temporal (copiado a /tmp y borrado): 12 apps, sin
+  `firefox (1)`, Konsole con origen "app".
