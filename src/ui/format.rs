@@ -18,6 +18,14 @@ pub fn human_bytes(bytes: u64) -> String {
     }
 }
 
+/// Tasa en bytes por segundo: `1.5M/s`.
+pub fn human_rate(bytes_per_second: f64) -> String {
+    format!(
+        "{}/s",
+        human_bytes(bytes_per_second.max(0.0).round() as u64)
+    )
+}
+
 /// Duración legible con dos unidades: `3d 4h`, `2h 05m`, `4m 12s`, `8s`.
 pub fn human_duration(seconds: f64) -> String {
     let total = seconds.max(0.0) as u64;
@@ -69,6 +77,13 @@ pub fn fit_center(text: &str, width: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn formats_rates() {
+        assert_eq!(human_rate(0.0), "0B/s");
+        assert_eq!(human_rate(1536.0), "1.5K/s");
+        assert_eq!(human_rate(-3.0), "0B/s");
+    }
 
     #[test]
     fn formats_durations() {

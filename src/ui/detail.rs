@@ -5,10 +5,11 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 
 use crate::apps::{App, AppKind};
+use crate::collect::IoReading;
 use crate::icons::{IconStore, DETAIL_ICON};
 
 use super::bars::write_spans;
-use super::format::{human_bytes, human_duration};
+use super::format::{human_bytes, human_duration, human_rate};
 use super::graph::{cpu_scale, draw_area, History};
 use super::grid::icon_for;
 use super::state::State;
@@ -87,6 +88,21 @@ fn owners(app: &App, state: &mut State) -> String {
     names.join(", ")
 }
 
+/// Texto de la fila de disco: `L` = lectura, `E` = escritura.
+fn disk_text(reading: Option<IoReading>) -> String {
+    match reading {
+        Some(IoReading::Rate(rate)) => {
+            format!(
+                "L {}  E {}",
+                human_rate(rate.read_bps),
+                human_rate(rate.write_bps)
+            )
+        }
+        Some(IoReading::Unavailable) => "n/d (sin permiso)".to_string(),
+        Some(IoReading::Warming) | None => "midiendo…".to_string(),
+    }
+}
+
 fn kind_label(app: &App) -> String {
     let kind = match app.kind {
         AppKind::App => "aplicación",
@@ -161,6 +177,11 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
             Style::default().fg(theme.load(app.cpu_pct)),
         ),
         ("RAM", ram, theme.text()),
+        (
+            "Disco",
+            disk_text(state.detail_of_selected().map(|d| d.io)),
+            theme.text(),
+        ),
     ];
 
     let line = |y: u16| Rect::new(info.x, info.y + y, info.width, 1);
@@ -313,6 +334,19 @@ mod tests {
         assert_eq!(graph_width(140), 60, "nunca más que el máximo");
         assert_eq!(graph_width(77), 0);
         assert_eq!(graph_width(10), 0);
+    }
+
+    #[test]
+    fn disk_row_distinguishes_rate_warming_and_no_permission() {
+        use crate::collect::IoRate;
+        let rate = IoReading::Rate(IoRate {
+            read_bps: 1_572_864.0,
+            write_bps: 0.0,
+        });
+        assert_eq!(disk_text(Some(rate)), "L 1.5M/s  E 0B/s");
+        assert_eq!(disk_text(Some(IoReading::Unavailable)), "n/d (sin permiso)");
+        assert_eq!(disk_text(Some(IoReading::Warming)), "midiendo…");
+        assert_eq!(disk_text(None), "midiendo…");
     }
 
     #[test]

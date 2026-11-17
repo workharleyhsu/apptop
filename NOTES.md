@@ -134,3 +134,9 @@ Decisiones y problemas, por iteración.
   cada tramo toma el pico. A 80 columnas quedan 22 celdas (≈2.7 s por punto).
 - Eje de CPU = múltiplo de 100 % que contiene el pico; eje de RAM = pico + 25 %, desde 0.
 - Verificado en vivo bajo pty reconstruyendo la pantalla final con un emulador mínimo.
+
+## Iteración 17 — disco
+- `read_bytes`/`write_bytes` de `/proc/<pid>/io` (E/S real a almacenamiento, no rchar/wchar),
+  sumados sobre los procesos de la app abierta. Tres estados: tasa, "midiendo…" (primera
+  lectura) y `n/d (sin permiso)` — `io` solo es legible para procesos propios.
+- Un pid nuevo o reciclado solo fija referencia; lo escrito por procesos ya muertos se pierde.

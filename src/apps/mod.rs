@@ -8,7 +8,9 @@ pub use cgroup::{classify, Unit};
 pub use desktop::{DesktopIndex, DesktopInfo};
 pub use group::{group_apps, group_apps_with, App, AppKind, Origin};
 
-use crate::collect::{Collector, SystemSampler, SystemStats};
+use std::time::Instant;
+
+use crate::collect::{Collector, IoReading, IoTracker, SystemSampler, SystemStats};
 
 /// Resultado de una muestra: apps agrupadas y totales del sistema.
 #[derive(Debug, Clone, Default)]
@@ -28,6 +30,8 @@ pub struct DetailData {
     pub app_id: String,
     /// PSS total en bytes; `None` si no se pudo leer de ningún proceso.
     pub pss: Option<u64>,
+    /// Lectura y escritura a disco por segundo.
+    pub io: IoReading,
 }
 
 /// Toma muestras de procesos y las entrega ya agrupadas en apps.
@@ -35,6 +39,9 @@ pub struct Sampler {
     collector: Collector,
     system: SystemSampler,
     index: DesktopIndex,
+    io: IoTracker,
+    /// App medida en detalle la vez anterior.
+    detail_id: Option<String>,
 }
 
 impl Sampler {
@@ -49,6 +56,8 @@ impl Sampler {
             collector,
             system,
             index: DesktopIndex::load(),
+            io: IoTracker::new(),
+            detail_id: None,
         }
     }
 
@@ -72,6 +81,12 @@ impl Sampler {
     }
 
     fn detail_for(&mut self, app: &App) -> DetailData {
+        // Al cambiar de app las referencias anteriores no sirven.
+        if self.detail_id.as_deref() != Some(app.id.as_str()) {
+            self.io = IoTracker::new();
+            self.detail_id = Some(app.id.clone());
+        }
+        let ids: Vec<(i32, u64)> = app.procs.iter().map(|p| (p.pid, p.starttime)).collect();
         // Ajeno o ya muerto → ese proceso no suma; todos ilegibles → n/d.
         let pss: Vec<u64> = app
             .procs
@@ -81,6 +96,7 @@ impl Sampler {
         DetailData {
             app_id: app.id.clone(),
             pss: (!pss.is_empty()).then(|| pss.iter().sum()),
+            io: self.io.sample(&ids, Instant::now()),
         }
     }
 

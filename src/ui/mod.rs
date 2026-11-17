@@ -200,6 +200,10 @@ mod tests {
         state.detail = Some(crate::apps::DetailData {
             app_id: "App:Firefox".into(),
             pss: Some(1200 << 20),
+            io: crate::collect::IoReading::Rate(crate::collect::IoRate {
+                read_bps: 2_400_000.0,
+                write_bps: 350_000.0,
+            }),
         });
         // Historial de 90 s: CPU en rampa con un pico, RAM creciendo.
         for t in 0..90 {

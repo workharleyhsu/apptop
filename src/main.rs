@@ -265,8 +265,13 @@ fn snapshot(width: u16, height: u16, app: Option<&str>) -> Result<String, String
             .ok_or_else(|| format!("no hay ninguna app en ejecución llamada '{wanted}'"))?;
         state.selected = Some(found);
         state.enter_detail();
-        // Segunda muestra, ahora con las mediciones de detalle de esa app.
-        sleep(Duration::from_millis(250));
+        // Dos muestras más con detalle: la primera fija las referencias de
+        // las tasas (disco, etc.) y la segunda ya las puede calcular.
+        for _ in 0..2 {
+            let sample = sampler.sample_with_detail(state.detail_target());
+            state.apply(sample);
+            sleep(Duration::from_millis(250));
+        }
         let sample = sampler.sample_with_detail(state.detail_target());
         state.apply(sample);
     }
