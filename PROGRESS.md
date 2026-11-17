@@ -36,7 +36,7 @@
 - [x] Pausar/reanudar (SIGSTOP/SIGCONT).
 - [x] Cambiar prioridad (nice), informando con claridad si falta permiso.
 - [x] Menú para elegir señal, y aplicar cualquier acción a un solo subproceso del árbol.
-- [ ] Tests de acciones usando solo procesos `sleep` lanzados por el test.
+- [x] Tests de acciones usando solo procesos `sleep` lanzados por el test.
 
 ## Fase 6 — Pulido
 - [ ] Config en `~/.config/apptop/config.toml` (refresco, orden, tamaño de icono, tema).

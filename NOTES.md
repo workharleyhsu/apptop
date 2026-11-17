@@ -207,3 +207,12 @@ Decisiones y problemas, por iteración.
   entera. El diálogo siempre dice a qué y a cuántos procesos afecta.
 - Verificado con `sleep` propios: SIGTERM desde el menú a una fila del árbol terminó solo
   ese proceso; los otros dos siguieron vivos.
+
+## Iteración 25 — tests de acciones
+- `tests/actions.rs`: SIGTERM/SIGKILL a un grupo, SIGSTOP→`T`→SIGCONT, un solo proceso sin
+  tocar hermanos, pid "reciclado" (starttime distinto) intacto, proceso ya terminado, nice
+  (subir, tope 19, y el rechazo al bajar). Todo sobre `sleep 600` creados por
+  `tests/common::Sleeper`, cuyo `Drop` mata y espera solo a su propio hijo.
+- `tests/stress.rs` (criterio de aceptación): un hilo crea y mata tandas de 8 `sleep` cada
+  2 ms durante 3 s mientras se muestrea con detalle (PSS, disco, GPU, red) y se dibuja.
+- Tras correr la suite no queda ningún `sleep 600` vivo.
