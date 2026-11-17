@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "App-centric resource monitor for the Linux terminal, with braille icons"
 license = "MIT OR Apache-2.0"
+authors = ["HarleyHsu <270751439+workharleyhsu@users.noreply.github.com>"]
+repository = "https://github.com/workharleyhsu/apptop"
+homepage = "https://github.com/workharleyhsu/apptop"
 readme = "README.md"
 keywords = ["tui", "monitor", "process", "terminal", "linux"]
 categories = ["command-line-utilities"]
@@ -27,6 +30,38 @@ toml = { version = "~1.1", default-features = false, features = ["parse", "serde
 insta = "1"
 libc = "0.2.191"
 tempfile = "3.27.0"
+
+# Paquetes .deb y .rpm. Se arman con scripts/package.sh a partir del binario
+# estático (musl), por eso no declaran dependencias de bibliotecas.
+[package.metadata.deb]
+maintainer = "HarleyHsu <270751439+workharleyhsu@users.noreply.github.com>"
+section = "utils"
+priority = "optional"
+# El binario es estático: "$auto" no encuentra bibliotecas y no declara ninguna.
+depends = "$auto"
+extended-description = """\
+apptop shows running applications and services as a grid of braille icons, \
+grouping processes by app instead of listing them one by one. Opening an app \
+shows its process tree, CPU, memory, disk, GPU and network usage, and lets \
+you close, kill, pause or renice it. It does not need root."""
+assets = [
+    ["target/release/apptop", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/apptop/", "644"],
+    ["README.es.md", "usr/share/doc/apptop/", "644"],
+    ["LICENSE-MIT", "usr/share/doc/apptop/", "644"],
+    ["LICENSE-APACHE", "usr/share/doc/apptop/", "644"],
+]
+
+[package.metadata.generate-rpm]
+# Binario estático: sin dependencias detectadas automáticamente.
+auto-req = "no"
+assets = [
+    { source = "target/release/apptop", dest = "/usr/bin/apptop", mode = "755" },
+    { source = "README.md", dest = "/usr/share/doc/apptop/README.md", mode = "644", doc = true },
+    { source = "README.es.md", dest = "/usr/share/doc/apptop/README.es.md", mode = "644", doc = true },
+    { source = "LICENSE-MIT", dest = "/usr/share/licenses/apptop/LICENSE-MIT", mode = "644" },
+    { source = "LICENSE-APACHE", dest = "/usr/share/licenses/apptop/LICENSE-APACHE", mode = "644" },
+]
 
 [profile.release]
 # Binario más chico y algo más rápido. Se conserva el desenrollado de pila

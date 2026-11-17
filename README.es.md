@@ -125,37 +125,57 @@ En la terminal los contornos van en color; acá se ven en texto plano.
 
 ## Instalación
 
-Requiere Linux x86-64 con cgroup v2 y systemd.
+Requiere Linux x86-64 con cgroup v2 y systemd. Después de cualquiera de estas
+opciones se ejecuta escribiendo `apptop`.
 
-### Binario precompilado
+### Paquete (Debian, Ubuntu, Fedora, openSUSE…)
 
-Es un ejecutable estático: no depende de la versión de la distribución.
+Descargá el paquete de tu distribución desde el
+[último release](https://github.com/workharleyhsu/apptop/releases/latest) y abrilo con el centro de software, o
+instalalo desde una terminal:
+
+```sh
+sudo apt install ./apptop_0.1.0-1_amd64.deb      # Debian, Ubuntu, Mint…
+sudo dnf install ./apptop-0.1.0-1.x86_64.rpm     # Fedora, RHEL…
+sudo zypper install ./apptop-0.1.0-1.x86_64.rpm  # openSUSE
+```
+
+Se desinstala con `sudo apt remove apptop` o `sudo dnf remove apptop`.
+
+### Instalador de una línea (cualquier distribución)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/workharleyhsu/apptop/main/install.sh | sh
+```
+
+Descarga el último release, verifica su suma SHA-256 e instala el binario en
+`~/.local/bin`. No necesita root. Si esa carpeta no está en tu `PATH`, el
+script te muestra la línea que hay que agregar. Se desinstala con
+`rm ~/.local/bin/apptop`.
+
+### Manual
+
+Todas las opciones usan el mismo ejecutable estático, así que no depende de
+la versión de la distribución. También se puede desempaquetar a mano:
 
 ```sh
 tar -xzf apptop-0.1.0-x86_64-linux.tar.gz
 sha256sum -c apptop-0.1.0-x86_64-linux.tar.gz.sha256   # opcional
 install -Dm755 apptop-0.1.0-x86_64-linux/apptop ~/.local/bin/apptop
-apptop
 ```
-
-`~/.local/bin` tiene que estar en el `PATH`.
 
 ### Desde el código
 
 Con Rust estable (edición 2021):
 
 ```sh
-git clone <url-del-repo> apptop
+git clone https://github.com/workharleyhsu/apptop
 cd apptop
 cargo install --path .        # instala en ~/.cargo/bin/apptop
 ```
 
-O solo compilar: `cargo build --release` deja el binario en
-`target/release/apptop`. Es un único ejecutable de unos 3 MB sin dependencias
-en tiempo de ejecución.
-
-No lo ejecutes con `sudo`: no hace falta, y como root las acciones afectarían a
-procesos de todo el sistema.
+No ejecutes apptop con `sudo`: no hace falta, y como root las acciones
+afectarían a procesos de todo el sistema.
 
 Para ver bien los iconos hace falta una fuente con braille y una terminal con
 color de 24 bits (si no, se degrada a 256 colores). El tamaño mínimo es 80×24.
@@ -314,8 +334,10 @@ acciones solo envían señales a procesos `sleep` que ellos mismos lanzan.
 Los textos de la interfaz viven en `src/i18n.rs`; agregar uno implica ponerlo
 en los dos idiomas, y el compilador lo exige.
 
-`scripts/package.sh` arma el binario precompilado (estático, con musl) en
-`dist/`; necesita `rustup target add x86_64-unknown-linux-musl`.
+`scripts/package.sh` arma en `dist/` todo lo que lleva un release (tarball
+estático, `.deb`, `.rpm` y sumas). Necesita
+`rustup target add x86_64-unknown-linux-musl` y
+`cargo install cargo-deb cargo-generate-rpm`.
 
 `PROGRESS.md` lleva el estado de las tareas y `NOTES.md` las decisiones de
 diseño y las mediciones de rendimiento.

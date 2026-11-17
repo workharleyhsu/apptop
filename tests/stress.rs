@@ -58,9 +58,12 @@ fn sampling_survives_processes_dying_mid_refresh() {
 
     stop.store(true, Ordering::Relaxed);
     churn.join().expect("el hilo de churn no debe fallar");
-    assert!(samples >= 10, "solo {samples} muestras");
+    // Umbrales bajos a propósito: lo que se prueba es que no haya panic. En
+    // una máquina cargada o en CI (pocos núcleos, build de debug) entran
+    // muchas menos muestras que en una máquina libre.
+    assert!(samples >= 2, "solo {samples} muestras");
     assert!(
-        churned.load(Ordering::Relaxed) >= 100,
+        churned.load(Ordering::Relaxed) >= 16,
         "pocos procesos: {churned:?}"
     );
 }

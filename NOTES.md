@@ -317,3 +317,22 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
   de que las columnas del detalle coinciden en ambos idiomas.
 - `README.md` en inglés y `README.es.md` en español, con capturas de los snapshots de cada
   idioma. Comentarios del código, este archivo y `PROGRESS.md` siguen en español.
+
+## Después del loop — instaladores y publicación
+- Tres formas de instalar, todas con el mismo binario estático (musl):
+  - `.deb` (`cargo-deb`) y `.rpm` (`cargo-generate-rpm`): instalan en `/usr/bin/apptop`.
+    Metadatos en `Cargo.toml`; los assets usan `target/release/...` y `scripts/package.sh`
+    pasa `--target x86_64-unknown-linux-musl` (cargo-deb rechaza rutas con el triple).
+  - `install.sh`: `sh` POSIX, sin root, verifica SHA-256 antes de instalar en
+    `~/.local/bin` y avisa si falta el `PATH`. shellcheck limpio.
+- Probado en contenedores limpios: `.deb` en Debian stable y Ubuntu (instalar, ejecutar,
+  desinstalar); `.rpm` en Fedora; tarball en Alpine y Arch; `install.sh` en Fedora como
+  usuario sin privilegios, y con la suma alterada (aborta sin instalar nada).
+  En contenedores `--list` da 0 apps: no hay systemd de usuario; se valida que arranque.
+- Las imágenes `-slim` de Debian/Ubuntu descartan `/usr/share/doc`, por eso ahí solo queda
+  `copyright`; en un sistema normal están los README y las licencias.
+- Autor de los commits y mantenedor de los paquetes: email noreply de GitHub. El historial
+  se reescribió antes del primer push para no exponer el email personal.
+- El test de estrés tenía umbrales que dependían de la carga de la máquina (falló una vez
+  con load 13 mientras compilaba otra cosa): ahora solo exige un mínimo simbólico.
+- CI en GitHub Actions: fmt, clippy y tests sobre ubuntu-latest.

@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
-# Arma el binario precompilado para publicar: estático (musl), sin
-# dependencias de la distribución, empaquetado con README y suma SHA-256.
+# Arma en dist/ todo lo que se publica en un release:
 #
-# Uso: scripts/package.sh
-# Requiere: rustup target add x86_64-unknown-linux-musl
+#   apptop-<ver>-x86_64-linux.tar.gz (+ .sha256)   binario estático + docs
+#   apptop_<ver>-1_amd64.deb                        Debian, Ubuntu y derivadas
+#   apptop-<ver>-1.x86_64.rpm                       Fedora, RHEL, openSUSE
+#   SHA256SUMS                                      sumas de todo lo anterior
+#
+# Los tres salen del mismo binario estático (musl), así ninguno depende de la
+# versión de glibc de la distribución.
+#
+# Requiere:
+#   rustup target add x86_64-unknown-linux-musl
+#   cargo install cargo-deb cargo-generate-rpm
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -21,12 +29,21 @@ if ldd "$BIN" 2>&1 | grep -q '=>'; then
     exit 1
 fi
 
-rm -rf "${DIST:?}/$NAME"
+rm -rf "${DIST:?}"
 mkdir -p "$DIST/$NAME"
+
+# 1. Tarball (lo usa install.sh).
 cp "$BIN" README.md README.es.md LICENSE-MIT LICENSE-APACHE "$DIST/$NAME/"
-
 tar -C "$DIST" --owner=0 --group=0 --numeric-owner -czf "$DIST/$NAME.tar.gz" "$NAME"
-(cd "$DIST" && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
 rm -rf "${DIST:?}/$NAME"
+(cd "$DIST" && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
 
-ls -l "$DIST/$NAME.tar.gz" "$DIST/$NAME.tar.gz.sha256"
+# 2. Paquetes. Con --target, las rutas target/release de Cargo.toml pasan a
+#    apuntar al binario musl ya compilado.
+cargo deb --target "$TARGET" --no-build --no-strip --output "$DIST/"
+cargo generate-rpm --target "$TARGET" --output "$DIST/"
+
+# 3. Sumas de todo.
+(cd "$DIST" && sha256sum -- *.tar.gz *.deb *.rpm > SHA256SUMS)
+
+ls -l "$DIST"

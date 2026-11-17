@@ -123,37 +123,56 @@ In a terminal the outlines are coloured; here they are plain text.
 
 ## Installation
 
-Requires x86-64 Linux with cgroup v2 and systemd.
+Requires x86-64 Linux with cgroup v2 and systemd. After any of these, run it
+by typing `apptop`.
 
-### Prebuilt binary
+### Package (Debian, Ubuntu, Fedora, openSUSE…)
 
-It is a static executable, so it does not depend on your distribution's
-version.
+Download the package for your distribution from the
+[latest release](https://github.com/workharleyhsu/apptop/releases/latest) and open it with your software centre,
+or install it from a terminal:
+
+```sh
+sudo apt install ./apptop_0.1.0-1_amd64.deb      # Debian, Ubuntu, Mint…
+sudo dnf install ./apptop-0.1.0-1.x86_64.rpm     # Fedora, RHEL…
+sudo zypper install ./apptop-0.1.0-1.x86_64.rpm  # openSUSE
+```
+
+Uninstall with `sudo apt remove apptop` or `sudo dnf remove apptop`.
+
+### One-line installer (any distribution)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/workharleyhsu/apptop/main/install.sh | sh
+```
+
+It downloads the latest release, verifies its SHA-256 checksum and installs
+the binary to `~/.local/bin`. It does not need root. If that folder is not in
+your `PATH`, the script tells you the line to add. Uninstall with
+`rm ~/.local/bin/apptop`.
+
+### Manual
+
+Every option uses the same static executable, so it does not depend on your
+distribution's version. You can also unpack it yourself:
 
 ```sh
 tar -xzf apptop-0.1.0-x86_64-linux.tar.gz
 sha256sum -c apptop-0.1.0-x86_64-linux.tar.gz.sha256   # optional
 install -Dm755 apptop-0.1.0-x86_64-linux/apptop ~/.local/bin/apptop
-apptop
 ```
-
-`~/.local/bin` must be in your `PATH`.
 
 ### From source
 
 With stable Rust (2021 edition):
 
 ```sh
-git clone <repo-url> apptop
+git clone https://github.com/workharleyhsu/apptop
 cd apptop
 cargo install --path .        # installs to ~/.cargo/bin/apptop
 ```
 
-Or just build it: `cargo build --release` leaves the binary in
-`target/release/apptop`. It is a single executable of about 3 MB with no
-runtime dependencies.
-
-Do not run it with `sudo`: it is not needed, and as root the actions would
+Do not run apptop with `sudo`: it is not needed, and as root the actions would
 reach every process on the system.
 
 The icons need a font with braille glyphs and look best in a terminal with
@@ -312,8 +331,10 @@ send signals to `sleep` processes they start themselves.
 User-facing text lives in `src/i18n.rs`; adding a string means adding it in
 both languages, and the compiler enforces it.
 
-`scripts/package.sh` builds the prebuilt binary (static, with musl) into
-`dist/`; it needs `rustup target add x86_64-unknown-linux-musl`.
+`scripts/package.sh` builds everything a release ships (static tarball, `.deb`,
+`.rpm` and checksums) into `dist/`. It needs
+`rustup target add x86_64-unknown-linux-musl` and
+`cargo install cargo-deb cargo-generate-rpm`.
 
 Code comments, `NOTES.md` (design decisions and performance measurements) and
 `PROGRESS.md` are in Spanish.
