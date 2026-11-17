@@ -1,6 +1,7 @@
 //! Localización de iconos y conversión a contornos braille.
 
 pub mod braille;
+pub mod cache;
 pub mod color;
 pub mod edges;
 pub mod generic;
@@ -10,6 +11,7 @@ pub mod raster;
 use std::path::Path;
 
 pub use braille::BrailleIcon;
+pub use cache::IconStore;
 pub use generic::{generic_icon, GenericKind};
 pub use locate::IconLocator;
 

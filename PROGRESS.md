@@ -10,7 +10,7 @@
 - [x] Localizar icono según tema activo, con fallback a hicolor y pixmaps.
 - [x] Pipeline SVG/PNG → bordes → braille + color dominante. `--dump-icon` funcionando.
 - [x] Iconos genéricos (servicio, app sin icono) en el mismo estilo.
-- [ ] Caché en disco.
+- [x] Caché en disco.
 
 ## Fase 3 — Pantalla principal
 - [ ] Grilla de iconos adaptable, con nombre + CPU/RAM bajo cada uno. `--snapshot`.

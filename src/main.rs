@@ -1,5 +1,6 @@
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -7,9 +8,7 @@ use clap::Parser;
 
 use apptop::apps::{group_apps_with, AppKind, DesktopIndex};
 use apptop::collect::Collector;
-use apptop::icons::{
-    convert_file, generic_icon, BrailleIcon, GenericKind, IconLocator, DETAIL_ICON, GRID_ICON,
-};
+use apptop::icons::{BrailleIcon, GenericKind, IconLocator, IconStore, DETAIL_ICON, GRID_ICON};
 use apptop::ui::format::human_bytes;
 
 /// Monitor de recursos para terminal centrado en aplicaciones.
@@ -158,21 +157,29 @@ fn resolve_icon(target: &str, locator: &IconLocator) -> Option<PathBuf> {
 }
 
 fn dump_icon(target: &str, size: (u16, u16), color: &str) -> i32 {
-    let icon: BrailleIcon = if let Some(kind) = GenericKind::from_name(target) {
+    let mut store = IconStore::new();
+    let icon: Arc<BrailleIcon> = if let Some(kind) = GenericKind::from_name(target) {
         eprintln!("{}", kind.name());
-        generic_icon(kind, size.0, size.1)
+        store.generic(kind, size.0, size.1)
     } else {
-        let locator = IconLocator::detect();
-        let Some(path) = resolve_icon(target, &locator) else {
+        let Some(path) = resolve_icon(target, store.locator()) else {
             eprintln!("apptop: no se encontró un icono para '{target}'");
             return 1;
         };
-        let Some(icon) = convert_file(&path, size.0, size.1) else {
+        let Some(icon) = store.file(&path, size.0, size.1) else {
             eprintln!("apptop: no se pudo convertir {}", path.display());
             return 1;
         };
         let (r, g, b) = icon.color;
-        eprintln!("{}  color #{r:02x}{g:02x}{b:02x}", path.display());
+        let source = if store.conversions == 0 {
+            "caché"
+        } else {
+            "convertido"
+        };
+        eprintln!(
+            "{}  color #{r:02x}{g:02x}{b:02x}  ({source})",
+            path.display()
+        );
         icon
     };
     let colored = match color {

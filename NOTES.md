@@ -64,3 +64,11 @@ Decisiones y problemas, por iteración.
 - Engranaje y ventana se describen como SVG en código y pasan por el mismo pipeline que los
   iconos reales: mismo estilo garantizado, sin un segundo camino de dibujo. Color fijo por tipo.
 - `--dump-icon generic:service|generic:app` para verlos.
+
+## Iteración 8 — caché de iconos
+- `~/.cache/apptop/<fnv1a(clave)>.icon`; clave = versión del pipeline + ruta + mtime (ns) +
+  tamaño en bytes + tamaño en celdas. La clave va dentro del archivo y se compara al leer
+  (colisiones y archivos dañados → se reconvierte). Escritura atómica (tmp + rename).
+- FNV-1a propio: el hasher por defecto de Rust no es estable entre versiones.
+- `IconStore` memoiza también los fallos, para no reintentar un icono roto en cada refresco.
+- Si cambia el algoritmo del pipeline hay que subir `PIPELINE_VERSION` en `icons/cache.rs`.
