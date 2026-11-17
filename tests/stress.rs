@@ -64,3 +64,23 @@ fn sampling_survives_processes_dying_mid_refresh() {
         "pocos procesos: {churned:?}"
     );
 }
+
+/// Red de seguridad contra regresiones groseras de rendimiento: el criterio
+/// real (menos de 2 % de un núcleo a 1 s) se mide aparte, pero una muestra
+/// completa nunca debería acercarse a 100 ms.
+#[test]
+fn a_sample_is_cheap() {
+    let mut sampler = Sampler::new();
+    sampler.sample();
+    let started = Instant::now();
+    let rounds = 20;
+    for _ in 0..rounds {
+        let sample = sampler.sample();
+        assert!(!sample.apps.is_empty());
+    }
+    let per_sample = started.elapsed() / rounds;
+    assert!(
+        per_sample < Duration::from_millis(100),
+        "{per_sample:?} por muestra"
+    );
+}

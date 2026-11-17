@@ -1,5 +1,6 @@
 //! Lectura de procesos y totales del sistema desde `/proc` y `/sys`.
 
+pub mod fds;
 pub mod gpu;
 pub mod io;
 pub mod net;

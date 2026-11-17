@@ -7,9 +7,12 @@
 //! deduplica por dispositivo + `drm-client-id`.
 
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+
+use super::fds::{self, FdScan};
 
 /// Datos de un cliente DRM leídos de un `fdinfo`.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -140,27 +143,14 @@ pub struct GpuTracker {
     last: Option<Instant>,
 }
 
-/// Clientes DRM de un proceso. `None` si su tabla de descriptores no es
-/// legible.
-fn clients_of(root: &Path, pid: i32) -> Option<Vec<DrmClient>> {
-    let dir = root.join(pid.to_string());
-    let entries = fs::read_dir(dir.join("fd")).ok()?;
-    let mut clients = Vec::new();
-    for entry in entries.flatten() {
-        // Solo interesan los descriptores sobre /dev/dri: evita leer el
-        // fdinfo de cada archivo y socket abierto.
-        let Ok(target) = fs::read_link(entry.path()) else {
-            continue;
-        };
-        if !target.starts_with("/dev/dri") {
-            continue;
-        }
-        let info = dir.join("fdinfo").join(entry.file_name());
-        if let Some(client) = fs::read_to_string(info).ok().and_then(|t| parse_fdinfo(&t)) {
-            clients.push(client);
-        }
-    }
-    Some(clients)
+/// Clientes DRM de un proceso, a partir de sus descriptores sobre
+/// `/dev/dri` ya identificados.
+fn clients_of(root: &Path, pid: i32, drm_fds: &[OsString]) -> Vec<DrmClient> {
+    let dir = root.join(pid.to_string()).join("fdinfo");
+    drm_fds
+        .iter()
+        .filter_map(|fd| parse_fdinfo(&fs::read_to_string(dir.join(fd)).ok()?))
+        .collect()
 }
 
 impl GpuTracker {
@@ -176,7 +166,18 @@ impl GpuTracker {
         }
     }
 
+    /// Mide recorriendo los descriptores de cada proceso.
     pub fn sample(&mut self, pids: &[i32], now: Instant) -> GpuReading {
+        let scans: Vec<(i32, Option<FdScan>)> = pids
+            .iter()
+            .map(|pid| (*pid, fds::scan(&self.root, *pid)))
+            .collect();
+        self.sample_scanned(&scans, now)
+    }
+
+    /// Mide a partir de recorridos de descriptores ya hechos (`None` = ese
+    /// proceso no era legible).
+    pub fn sample_scanned(&mut self, scans: &[(i32, Option<FdScan>)], now: Instant) -> GpuReading {
         let elapsed = self
             .last
             .map(|t| now.saturating_duration_since(t).as_secs_f64());
@@ -184,12 +185,12 @@ impl GpuTracker {
 
         let mut readable = 0usize;
         let mut unique: HashMap<ClientKey, DrmClient> = HashMap::new();
-        for &pid in pids {
-            let Some(clients) = clients_of(&self.root, pid) else {
+        for (pid, scan) in scans {
+            let Some(scan) = scan else {
                 continue;
             };
             readable += 1;
-            for client in clients {
+            for client in clients_of(&self.root, *pid, &scan.drm) {
                 let device = if client.device.is_empty() {
                     client.driver.clone()
                 } else {
@@ -244,7 +245,13 @@ impl GpuTracker {
         if !compared {
             return GpuReading::Warming(stats);
         }
-        if let Some((engine, fraction)) = busy.into_iter().max_by(|a, b| a.1.total_cmp(&b.1)) {
+        // Con todos los motores en cero no se nombra ninguno: elegir uno al
+        // azar ("0% video-enhance") confundiría.
+        let busiest = busy
+            .into_iter()
+            .filter(|(_, fraction)| *fraction > 0.0)
+            .max_by(|a, b| a.1.total_cmp(&b.1).then_with(|| b.0.cmp(&a.0)));
+        if let Some((engine, fraction)) = busiest {
             stats.busy_pct = (fraction * 100.0).clamp(0.0, 100.0) as f32;
             stats.engine = engine;
         }
@@ -395,6 +402,20 @@ mod tests {
         assert_eq!(stats.engine, "gfx");
         assert!((stats.busy_pct - 40.0).abs() < 0.01, "{}", stats.busy_pct);
         assert_eq!((stats.driver.as_str(), stats.clients), ("amdgpu", 2));
+    }
+
+    #[test]
+    fn an_idle_gpu_names_no_engine() {
+        let tmp = tempfile::tempdir().unwrap();
+        add_fd(tmp.path(), 1, 5, "/dev/dri/renderD128", I915);
+        let mut tracker = GpuTracker::with_root(tmp.path());
+        let t0 = Instant::now();
+        tracker.sample(&[1], t0);
+        let GpuReading::Stats(stats) = tracker.sample(&[1], t0 + Duration::from_secs(1)) else {
+            panic!("debe haber estadísticas");
+        };
+        assert_eq!((stats.busy_pct, stats.engine.as_str()), (0.0, ""));
+        assert_eq!(stats.memory, 34_800 * 1024);
     }
 
     #[test]

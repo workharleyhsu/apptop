@@ -8,12 +8,18 @@ pub use cgroup::{classify, Unit};
 pub use desktop::{DesktopIndex, DesktopInfo};
 pub use group::{group_apps, group_apps_with, App, AppKind, Origin};
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
+use crate::collect::fds::{self, FdScan};
 use crate::collect::{
     Collector, GpuReading, GpuTracker, IoReading, IoTracker, NetReading, NetTracker, NetlinkSource,
     SystemSampler, SystemStats,
 };
+
+/// Cada cuánto se vuelve a medir el PSS de la app abierta en detalle.
+/// `smaps_rollup` hace que el kernel recorra todas las páginas del proceso:
+/// para un navegador de varios GB es, por lejos, la lectura más cara.
+pub const PSS_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Resultado de una muestra: apps agrupadas y totales del sistema.
 #[derive(Debug, Clone, Default)]
@@ -49,6 +55,9 @@ pub struct Sampler {
     io: IoTracker,
     gpu: GpuTracker,
     net: NetTracker,
+    /// Último PSS medido y cuándo: es la lectura más cara, no se repite en
+    /// cada refresco.
+    pss: Option<(Instant, Option<u64>)>,
     /// App medida en detalle la vez anterior.
     detail_id: Option<String>,
 }
@@ -68,6 +77,7 @@ impl Sampler {
             io: IoTracker::new(),
             gpu: GpuTracker::new(),
             net: NetTracker::new(),
+            pss: None,
             detail_id: None,
         }
     }
@@ -97,23 +107,39 @@ impl Sampler {
             self.io = IoTracker::new();
             self.gpu = GpuTracker::new();
             self.net = NetTracker::new();
+            self.pss = None;
             self.detail_id = Some(app.id.clone());
         }
         let ids: Vec<(i32, u64)> = app.procs.iter().map(|p| (p.pid, p.starttime)).collect();
-        // Ajeno o ya muerto → ese proceso no suma; todos ilegibles → n/d.
-        let pss: Vec<u64> = app
+        let now = Instant::now();
+        let pss = match self.pss {
+            Some((at, value)) if now.saturating_duration_since(at) < PSS_INTERVAL => value,
+            _ => {
+                // Ajeno o ya muerto → ese proceso no suma; todos ilegibles → n/d.
+                let values: Vec<u64> = app
+                    .procs
+                    .iter()
+                    .filter_map(|p| self.collector.pss(p.pid))
+                    .collect();
+                let value = (!values.is_empty()).then(|| values.iter().sum());
+                self.pss = Some((now, value));
+                value
+            }
+        };
+        // Un solo recorrido de descriptores por proceso, compartido por la
+        // medición de GPU y la de red.
+        let root = self.collector.root().to_path_buf();
+        let scans: Vec<(i32, Option<FdScan>)> = app
             .procs
             .iter()
-            .filter_map(|p| self.collector.pss(p.pid))
+            .map(|p| (p.pid, fds::scan(&root, p.pid)))
             .collect();
         DetailData {
             app_id: app.id.clone(),
-            pss: (!pss.is_empty()).then(|| pss.iter().sum()),
-            io: self.io.sample(&ids, Instant::now()),
-            gpu: self.gpu.sample(&app.pids(), Instant::now()),
-            net: self
-                .net
-                .sample(&app.pids(), Instant::now(), &mut NetlinkSource),
+            pss,
+            io: self.io.sample(&ids, now),
+            gpu: self.gpu.sample_scanned(&scans, now),
+            net: self.net.sample_scanned(&scans, now, &mut NetlinkSource),
         }
     }
 

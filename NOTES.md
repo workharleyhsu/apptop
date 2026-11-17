@@ -239,3 +239,26 @@ Decisiones y problemas, por iteración.
 - SIGTERM/SIGHUP/SIGINT: manejador que solo marca un `AtomicBool`; el bucle sale ordenado.
 - Verificado en vivo bajo pty: achicar a 60×20 muestra el aviso y agrandar lo quita; panic →
   código 101 con terminal restaurada y mensaje legible; SIGTERM/SIGHUP → salida limpia.
+
+## Iteración 28 — rendimiento
+Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
+
+| Medida                                   | Resultado            | Criterio  |
+|------------------------------------------|----------------------|-----------|
+| CPU en reposo, grilla, refresco 1 s      | 0.67–0.77 % (30 s)   | < 2 %     |
+| RAM (RSS / pico)                         | 7.0–7.4 MB           | < 40 MB   |
+| Arranque hasta el primer cuadro (caché caliente) | 38–127 ms (típico ~45) | < 300 ms |
+| Arranque con caché de iconos fría        | 55 ms                | —         |
+| Detalle de Firefox (21 procesos, 5.7 GB) | 5.6 % → 2.1 %        | —         |
+| Grilla con refresco de 0.25 s            | 2.4 %                | —         |
+
+- La grilla ya cumplía sin tocar nada. Lo que se optimizó fue el detalle:
+  - PSS (`smaps_rollup`) cada 5 s en vez de cada refresco: el kernel recorre todas las
+    páginas del proceso y era el grueso del costo.
+  - Un solo recorrido de `/proc/<pid>/fd` por proceso (`collect/fds.rs`) compartido entre GPU
+    y red; antes cada una hacía `readlink` de los miles de descriptores del navegador.
+- Perfil release: LTO thin, 1 codegen unit, strip → binario de 4.3 MB a 2.9 MB. Se mantiene
+  `panic = "unwind"` porque el hook de panic restaura la terminal.
+- `--snapshot` tarda ~0.29 s por diseño: espera 250 ms entre dos muestras para tener CPU %.
+- Test `a_sample_is_cheap`: red de seguridad (una muestra < 100 ms; real ≈ 5 ms).
+- De paso: una GPU con todos los motores en 0 ya no muestra un nombre de motor al azar.

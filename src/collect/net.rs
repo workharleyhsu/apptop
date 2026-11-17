@@ -13,8 +13,7 @@
 //! por conexiones que se abren y cierran entre dos muestras.
 
 use std::collections::{HashMap, HashSet};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
 use netlink_packet_core::{
@@ -26,6 +25,8 @@ use netlink_packet_sock_diag::inet::{ExtensionFlags, InetRequest, SocketId, Stat
 use netlink_packet_sock_diag::SockDiagMessage;
 use netlink_sys::protocols::NETLINK_SOCK_DIAG;
 use netlink_sys::{Socket, SocketAddr};
+
+use super::fds::{self, FdScan};
 
 /// Contadores acumulados de un socket TCP.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,30 +124,6 @@ fn dump(family: u8) -> Option<Vec<TcpSocket>> {
     None
 }
 
-/// Inodos de los sockets abiertos por un proceso. `None` si su tabla de
-/// descriptores no es legible.
-pub fn socket_inodes(root: &Path, pid: i32) -> Option<HashSet<u64>> {
-    let entries = fs::read_dir(root.join(pid.to_string()).join("fd")).ok()?;
-    let mut inodes = HashSet::new();
-    for entry in entries.flatten() {
-        if let Ok(target) = fs::read_link(entry.path()) {
-            if let Some(inode) = parse_socket_link(&target.to_string_lossy()) {
-                inodes.insert(inode);
-            }
-        }
-    }
-    Some(inodes)
-}
-
-/// `socket:[12345]` → `12345`.
-pub fn parse_socket_link(target: &str) -> Option<u64> {
-    target
-        .strip_prefix("socket:[")?
-        .strip_suffix(']')?
-        .parse()
-        .ok()
-}
-
 /// Tráfico TCP de una app.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct NetRate {
@@ -186,18 +163,34 @@ impl NetTracker {
         }
     }
 
+    /// Mide recorriendo los descriptores de cada proceso.
     pub fn sample(
         &mut self,
         pids: &[i32],
         now: Instant,
         source: &mut dyn SocketSource,
     ) -> NetReading {
+        let scans: Vec<(i32, Option<FdScan>)> = pids
+            .iter()
+            .map(|pid| (*pid, fds::scan(&self.root, *pid)))
+            .collect();
+        self.sample_scanned(&scans, now, source)
+    }
+
+    /// Mide a partir de recorridos de descriptores ya hechos (`None` = ese
+    /// proceso no era legible).
+    pub fn sample_scanned(
+        &mut self,
+        scans: &[(i32, Option<FdScan>)],
+        now: Instant,
+        source: &mut dyn SocketSource,
+    ) -> NetReading {
         let mut inodes: HashSet<u64> = HashSet::new();
         let mut readable = false;
-        for &pid in pids {
-            if let Some(found) = socket_inodes(&self.root, pid) {
+        for (_, scan) in scans {
+            if let Some(scan) = scan {
                 readable = true;
-                inodes.extend(found);
+                inodes.extend(scan.sockets.iter().copied());
             }
         }
         if !readable {
@@ -249,9 +242,11 @@ impl Default for NetTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::os::unix::fs::symlink;
+    use std::path::Path;
     use std::time::Duration;
 
     struct Fake(Option<Vec<TcpSocket>>);
@@ -275,14 +270,6 @@ mod tests {
         let dir = root.join(pid.to_string()).join("fd");
         fs::create_dir_all(&dir).unwrap();
         symlink(target, dir.join(fd.to_string())).unwrap();
-    }
-
-    #[test]
-    fn parses_socket_links() {
-        assert_eq!(parse_socket_link("socket:[48213]"), Some(48213));
-        assert_eq!(parse_socket_link("pipe:[5]"), None);
-        assert_eq!(parse_socket_link("/dev/null"), None);
-        assert_eq!(parse_socket_link("socket:[x]"), None);
     }
 
     #[test]

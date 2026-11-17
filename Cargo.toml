@@ -22,3 +22,10 @@ toml = { version = "~1.1", default-features = false, features = ["parse", "serde
 insta = "1"
 libc = "0.2.191"
 tempfile = "3.27.0"
+
+[profile.release]
+# Binario más chico y algo más rápido. Se conserva el desenrollado de pila
+# (panic = "unwind") porque el hook de panic restaura la terminal.
+lto = "thin"
+codegen-units = 1
+strip = true

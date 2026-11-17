@@ -114,6 +114,9 @@ fn gpu_text(reading: Option<&GpuReading>) -> String {
         }
     };
     match reading {
+        Some(GpuReading::Stats(stats)) if stats.engine.is_empty() => {
+            format!("0% · {}", memory(stats))
+        }
         Some(GpuReading::Stats(stats)) => {
             format!(
                 "{:.0}% {} · {}",
@@ -424,6 +427,12 @@ mod tests {
             gpu_text(Some(&GpuReading::Warming(integrated))),
             "midiendo… · 344M RAM"
         );
+        let idle = GpuStats {
+            busy_pct: 0.0,
+            engine: String::new(),
+            ..stats.clone()
+        };
+        assert_eq!(gpu_text(Some(&GpuReading::Stats(idle))), "0% · VRAM 344M");
         assert_eq!(gpu_text(Some(&GpuReading::NotUsed)), "sin uso");
         assert_eq!(
             gpu_text(Some(&GpuReading::Unavailable)),
