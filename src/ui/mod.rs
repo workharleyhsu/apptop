@@ -144,6 +144,25 @@ mod tests {
     }
 
     #[test]
+    fn paused_apps_are_flagged_in_the_grid() {
+        use crate::apps::group::tests::proc;
+        let mut state = State::new(Theme::default());
+        let mut apps = state::tests::sample_apps();
+        apps[2].procs = vec![proc(1, 0, "/b/a", "/"), proc(2, 1, "/b/a", "/")];
+        apps[2].procs.iter_mut().for_each(|p| p.state = 'T');
+        state.set_apps(apps);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert_eq!(text.matches("‖ pausada").count(), 1, "{text}");
+        assert!(
+            text.contains("p reanudar"),
+            "Alacritty (pausada) es la seleccionada"
+        );
+        state.selected = Some("App:Firefox".into());
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert!(text.contains("p pausar"));
+    }
+
+    #[test]
     fn bars_show_totals_and_shortcuts_and_nd_when_unknown() {
         let mut state = State::new(Theme::default());
         state.set_apps(state::tests::sample_apps());

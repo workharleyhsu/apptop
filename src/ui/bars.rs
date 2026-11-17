@@ -149,6 +149,7 @@ pub fn hints(state: &State) -> Vec<Hint> {
                 Hint::new("Tab", format!("ver: {}", state.sections.label()), 3),
                 Hint::new("x", "cerrar", 7),
                 Hint::new("K", "matar", 6),
+                Hint::new("p", pause_label(state), 5),
                 Hint::new("+/-", "refresco", 2),
             ];
             if !state.filter.is_empty() {
@@ -161,9 +162,19 @@ pub fn hints(state: &State) -> Vec<Hint> {
             Hint::new("↑↓/jk", "elegir proceso", 3),
             Hint::new("x", "cerrar", 6),
             Hint::new("K", "matar", 5),
+            Hint::new("p", pause_label(state), 4),
             Hint::new("Esc", "volver", 8),
             Hint::new("q", "salir", 9),
         ],
+    }
+}
+
+/// Qué hará la tecla de pausa ahora mismo.
+fn pause_label(state: &State) -> &'static str {
+    if state.scope_is_paused() {
+        "reanudar"
+    } else {
+        "pausar"
     }
 }
 
@@ -246,7 +257,7 @@ mod tests {
         assert_eq!(keys(&s)[0], "Enter");
         s.mode = Mode::Normal;
         s.view = View::Detail;
-        assert_eq!(keys(&s), vec!["↑↓/jk", "x", "K", "Esc", "q"]);
+        assert_eq!(keys(&s), vec!["↑↓/jk", "x", "K", "p", "Esc", "q"]);
     }
 
     #[test]

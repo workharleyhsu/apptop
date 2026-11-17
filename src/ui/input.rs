@@ -51,6 +51,10 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
             state.ask_signal(Signal::SIGKILL);
             return Outcome::Redraw;
         }
+        KeyCode::Char('p') => {
+            state.toggle_pause();
+            return Outcome::Redraw;
+        }
         _ => {}
     }
     // El intervalo de refresco se ajusta desde cualquier vista.
@@ -446,6 +450,25 @@ mod tests {
         // 'k' minúscula sigue siendo "arriba", no matar.
         handle_event(&mut s, &key(KeyCode::Char('k')));
         assert!(s.mode == Mode::Normal && s.pending.is_none());
+    }
+
+    #[test]
+    fn p_pauses_and_resumes_immediately() {
+        use crate::apps::group::tests::proc;
+        let mut s = laid_out(2, 0, 80, 24);
+        s.apps[0].procs = vec![proc(500, 1, "/b/a", "/")];
+        assert_eq!(
+            handle_event(&mut s, &key(KeyCode::Char('p'))),
+            Outcome::Redraw
+        );
+        assert_eq!(s.pending.take().unwrap().signal, Signal::SIGSTOP);
+        s.apps[0].procs[0].state = 'T';
+        handle_event(&mut s, &key(KeyCode::Char('p')));
+        assert_eq!(s.pending.take().unwrap().signal, Signal::SIGCONT);
+        // Mientras se filtra, 'p' es texto.
+        handle_event(&mut s, &key(KeyCode::Char('/')));
+        handle_event(&mut s, &key(KeyCode::Char('p')));
+        assert!(s.pending.is_none() && s.filter == "p");
     }
 
     #[test]

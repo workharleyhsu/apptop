@@ -8,7 +8,7 @@ use crate::apps::{App, AppKind};
 use crate::icons::{BrailleIcon, GenericKind, IconStore};
 
 use super::format::{fit_center, human_bytes};
-use super::state::State;
+use super::state::{app_is_paused, State};
 
 /// Columna libre a cada lado del icono (ahí va la marca de selección).
 const SIDE_PAD: u16 = 1;
@@ -225,23 +225,31 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
             name_style,
         );
 
-        // Resumen: CPU coloreada por carga y RAM atenuada, centrados juntos.
-        let cpu = format!("{:.1}%", app.cpu_pct);
-        let ram = human_bytes(app.rss);
-        let used = cpu.chars().count() + 1 + ram.chars().count();
-        let start = tile.x + SIDE_PAD + (icon_w as usize).saturating_sub(used) as u16 / 2;
-        let stats_y = tile.y + icon_h + 1;
-        put(
-            buf,
-            area,
-            scroll,
-            start,
-            stats_y,
-            &cpu,
-            Style::default().fg(theme.load(app.cpu_pct)),
-        );
-        let ram_x = start + cpu.chars().count() as u16 + 1;
-        put(buf, area, scroll, ram_x, stats_y, &ram, theme.dim());
+        // Una app pausada no consume CPU: se avisa en lugar del resumen.
+        if app_is_paused(app) {
+            let label = fit_center("‖ pausada", icon_w as usize);
+            let style = Style::default().fg(theme.load(50.0));
+            let y = tile.y + icon_h + 1;
+            put(buf, area, scroll, tile.x + SIDE_PAD, y, &label, style);
+        } else {
+            // Resumen: CPU coloreada por carga y RAM atenuada, centrados juntos.
+            let cpu = format!("{:.1}%", app.cpu_pct);
+            let ram = human_bytes(app.rss);
+            let used = cpu.chars().count() + 1 + ram.chars().count();
+            let start = tile.x + SIDE_PAD + (icon_w as usize).saturating_sub(used) as u16 / 2;
+            let stats_y = tile.y + icon_h + 1;
+            put(
+                buf,
+                area,
+                scroll,
+                start,
+                stats_y,
+                &cpu,
+                Style::default().fg(theme.load(app.cpu_pct)),
+            );
+            let ram_x = start + cpu.chars().count() as u16 + 1;
+            put(buf, area, scroll, ram_x, stats_y, &ram, theme.dim());
+        }
 
         if is_selected {
             // Marca de selección: barras a los lados, sin tocar el fondo.

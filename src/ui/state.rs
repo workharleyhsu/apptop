@@ -524,6 +524,36 @@ impl State {
         })
     }
 
+    /// ¿Están detenidos todos los procesos sobre los que actuaría una acción?
+    pub fn scope_is_paused(&self) -> bool {
+        let Some(app) = self.selected_app() else {
+            return false;
+        };
+        let chosen = match (self.view, self.proc_selected) {
+            (View::Detail, Some(pid)) => Some(pid),
+            _ => None,
+        };
+        let mut procs = app
+            .procs
+            .iter()
+            .filter(|p| chosen.is_none_or(|pid| p.pid == pid))
+            .peekable();
+        procs.peek().is_some() && procs.all(|p| is_stopped(p.state))
+    }
+
+    /// Pausa (SIGSTOP) o reanuda (SIGCONT) según el estado actual. No pide
+    /// confirmación: es reversible con la misma tecla.
+    pub fn toggle_pause(&mut self) {
+        let signal = if self.scope_is_paused() {
+            Signal::SIGCONT
+        } else {
+            Signal::SIGSTOP
+        };
+        if let Some(request) = self.build_request(signal) {
+            self.pending = Some(request);
+        }
+    }
+
     /// Pide confirmación para enviar `signal` (cerrar, matar).
     pub fn ask_signal(&mut self, signal: Signal) {
         if let Some(request) = self.build_request(signal) {
@@ -598,6 +628,16 @@ impl State {
     pub fn back_to_grid(&mut self) {
         self.view = View::Grid;
     }
+}
+
+/// Estados del kernel que indican un proceso detenido por una señal.
+pub fn is_stopped(state: char) -> bool {
+    matches!(state, 'T' | 't')
+}
+
+/// ¿Está pausada la app entera (todos sus procesos detenidos)?
+pub fn app_is_paused(app: &App) -> bool {
+    !app.procs.is_empty() && app.procs.iter().all(|p| is_stopped(p.state))
 }
 
 /// ¿La app coincide con el texto (ya en minúsculas)? Busca en el nombre
@@ -921,6 +961,70 @@ pub(crate) mod tests {
         s.ask_signal(Signal::SIGTERM);
         assert_eq!(s.mode, Mode::Normal);
         assert!(s.current_message().unwrap().is_error);
+    }
+
+    #[test]
+    fn pause_toggles_between_stop_and_continue_without_asking() {
+        let mut s = state_with_procs();
+        s.lineage = vec![999];
+        assert!(!s.scope_is_paused());
+        s.toggle_pause();
+        assert_eq!(s.mode, Mode::Normal, "pausar no pide confirmación");
+        let request = s.pending.take().unwrap();
+        assert_eq!(
+            (request.signal, request.targets.len()),
+            (Signal::SIGSTOP, 3)
+        );
+
+        // Con todos detenidos, la misma tecla reanuda.
+        s.apps[0].procs.iter_mut().for_each(|p| p.state = 'T');
+        assert!(s.scope_is_paused() && app_is_paused(&s.apps[0]));
+        s.toggle_pause();
+        assert_eq!(s.pending.take().unwrap().signal, Signal::SIGCONT);
+
+        // Con uno solo corriendo, la app no cuenta como pausada...
+        s.apps[0].procs[1].state = 'S';
+        assert!(!s.scope_is_paused() && !app_is_paused(&s.apps[0]));
+        // ...pero en el detalle se mira solo el proceso elegido.
+        s.enter_detail();
+        s.proc_selected = Some(10);
+        assert!(s.scope_is_paused());
+        s.toggle_pause();
+        let request = s.pending.take().unwrap();
+        assert_eq!(
+            (
+                request.signal,
+                request.targets.len(),
+                request.single_process
+            ),
+            (Signal::SIGCONT, 1, true)
+        );
+        s.proc_selected = Some(11);
+        s.toggle_pause();
+        assert_eq!(s.pending.take().unwrap().signal, Signal::SIGSTOP);
+    }
+
+    #[test]
+    fn pausing_never_freezes_apptop_or_its_terminal() {
+        let mut s = state_with_procs();
+        // apptop es el pid 12, hijo del 10: en la app solo queda pausable el 11.
+        s.lineage = vec![12, 10, 1];
+        s.toggle_pause();
+        let request = s.pending.take().unwrap();
+        assert_eq!(
+            request.targets,
+            vec![Target {
+                pid: 11,
+                starttime: 11
+            }]
+        );
+        assert_eq!(request.excluded, 2);
+        // Y si todo lo que queda es apptop y sus ancestros, no se envía nada.
+        s.apps[0].procs.remove(1);
+        s.toggle_pause();
+        assert!(s.pending.is_none());
+        assert!(s.current_message().unwrap().is_error);
+        assert!(!app_is_paused(&app("vacía", AppKind::App, 0.0, 0)));
     }
 
     #[test]

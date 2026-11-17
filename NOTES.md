@@ -182,3 +182,10 @@ Decisiones y problemas, por iteración.
   --unit=app-apptoptestNNN-1.scope` con dos `sleep` propios; se comprueba que `--list` vea
   exactamente esos PIDs y recién entonces la TUI (bajo pty) filtra por ese nombre, `x`, `n`
   (siguen vivos) y `x`, `s` (terminan los 3).
+
+## Iteración 22 — pausar/reanudar
+- `p` alterna: si todos los procesos del alcance están detenidos (`T`) manda SIGCONT, si no
+  SIGSTOP. Sin confirmación: es reversible con la misma tecla. El atajo de la barra dice
+  "pausar" o "reanudar" según corresponda y la grilla marca la app con "‖ pausada".
+- SIGSTOP nunca va a apptop ni a sus ancestros; si no queda a quién enviarla, aviso de error.
+- Verificado con `sleep` propios en un scope propio: S S S → T T T → S S S.
