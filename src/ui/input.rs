@@ -4,6 +4,8 @@ use ratatui::crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 
+use crate::actions::Signal;
+
 use super::state::{Mode, Move, State, View};
 
 /// Qué debe hacer el bucle principal después de un evento.
@@ -29,8 +31,27 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
         return Outcome::Quit;
     }
-    if state.mode == Mode::Filter {
-        return filter_key(state, key);
+    match state.mode {
+        Mode::Filter => return filter_key(state, key),
+        Mode::Confirm(_) => {
+            // Solo 's' (o 'y') confirma; cualquier otra tecla cancela.
+            let yes = matches!(key.code, KeyCode::Char('s' | 'S' | 'y' | 'Y'));
+            state.answer_confirm(yes);
+            return Outcome::Redraw;
+        }
+        Mode::Normal => {}
+    }
+    // Acciones sobre la app seleccionada (o el proceso elegido en el detalle).
+    match key.code {
+        KeyCode::Char('x') => {
+            state.ask_signal(Signal::SIGTERM);
+            return Outcome::Redraw;
+        }
+        KeyCode::Char('K') => {
+            state.ask_signal(Signal::SIGKILL);
+            return Outcome::Redraw;
+        }
+        _ => {}
     }
     // El intervalo de refresco se ajusta desde cualquier vista.
     match key.code {
@@ -142,6 +163,11 @@ fn detail_key(state: &mut State, key: &KeyEvent) -> Outcome {
 }
 
 pub fn handle_mouse(state: &mut State, mouse: &MouseEvent) -> Outcome {
+    // Con un diálogo abierto el mouse no hace nada: evita confirmar o
+    // cambiar de app por accidente.
+    if state.mode != Mode::Normal && state.mode != Mode::Filter {
+        return Outcome::Ignored;
+    }
     if state.view == View::Detail {
         return match mouse.kind {
             MouseEventKind::ScrollDown => {
@@ -286,7 +312,7 @@ mod tests {
         let ctrl_c = Event::Key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert_eq!(handle_event(&mut s, &ctrl_c), Outcome::Quit);
         assert_eq!(
-            handle_event(&mut s, &key(KeyCode::Char('x'))),
+            handle_event(&mut s, &key(KeyCode::Char('z'))),
             Outcome::Ignored
         );
     }
@@ -331,7 +357,7 @@ mod tests {
         handle_event(&mut s, &key(KeyCode::Right));
         assert_eq!(s.selected_index(), Some(1));
         handle_event(&mut s, &key(KeyCode::Enter));
-        assert_eq!((s.mode, s.filter.as_str()), (Mode::Normal, "svc"));
+        assert_eq!((s.mode.clone(), s.filter.as_str()), (Mode::Normal, "svc"));
         // Ya en modo normal, Esc limpia el filtro y 'q' vuelve a salir.
         assert_eq!(handle_event(&mut s, &key(KeyCode::Esc)), Outcome::Redraw);
         assert_eq!(s.visible().count(), 5);
@@ -348,7 +374,7 @@ mod tests {
         handle_event(&mut s, &key(KeyCode::Char('x')));
         handle_event(&mut s, &key(KeyCode::Esc));
         assert_eq!(
-            (s.mode, s.filter.as_str(), s.visible().count()),
+            (s.mode.clone(), s.filter.as_str(), s.visible().count()),
             (Mode::Normal, "", 5)
         );
         handle_event(&mut s, &key(KeyCode::Char('/')));
@@ -382,6 +408,44 @@ mod tests {
             (s.refresh, s.filter.as_str()),
             (Duration::from_millis(1250), "-")
         );
+    }
+
+    #[test]
+    fn x_and_shift_k_ask_before_doing_anything() {
+        use crate::apps::group::tests::proc;
+        let mut s = laid_out(2, 0, 80, 24);
+        s.apps[0].procs = vec![proc(500, 1, "/b/a", "/"), proc(501, 500, "/b/a", "/")];
+        handle_event(&mut s, &key(KeyCode::Char('x')));
+        assert!(matches!(s.mode, Mode::Confirm(_)));
+        // Cualquier tecla que no sea 's' cancela, incluso Enter y 'q'.
+        for code in [
+            KeyCode::Enter,
+            KeyCode::Char('q'),
+            KeyCode::Esc,
+            KeyCode::Char('n'),
+        ] {
+            assert_eq!(handle_event(&mut s, &key(code)), Outcome::Redraw);
+            assert!(s.mode == Mode::Normal && s.pending.is_none(), "{code:?}");
+            handle_event(&mut s, &key(KeyCode::Char('x')));
+        }
+        // El mouse no confirma ni mueve nada con el diálogo abierto.
+        let click = mouse(MouseEventKind::Down(MouseButton::Left), 30, 4);
+        assert_eq!(handle_event(&mut s, &click), Outcome::Ignored);
+        assert!(matches!(s.mode, Mode::Confirm(_)));
+
+        handle_event(&mut s, &key(KeyCode::Char('s')));
+        let pending = s.pending.take().unwrap();
+        assert_eq!(
+            (pending.signal, pending.targets.len()),
+            (Signal::SIGTERM, 2)
+        );
+
+        handle_event(&mut s, &key(KeyCode::Char('K')));
+        handle_event(&mut s, &key(KeyCode::Char('y')));
+        assert_eq!(s.pending.take().unwrap().signal, Signal::SIGKILL);
+        // 'k' minúscula sigue siendo "arriba", no matar.
+        handle_event(&mut s, &key(KeyCode::Char('k')));
+        assert!(s.mode == Mode::Normal && s.pending.is_none());
     }
 
     #[test]

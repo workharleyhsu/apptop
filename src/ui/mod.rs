@@ -2,6 +2,7 @@
 
 pub mod bars;
 pub mod detail;
+pub mod dialog;
 pub mod format;
 pub mod graph;
 pub mod grid;
@@ -18,7 +19,7 @@ use ratatui::{Frame, Terminal};
 use crate::icons::IconStore;
 
 pub use run::{run, RunOptions};
-pub use state::{Mode, Sections, SortKey, State, View};
+pub use state::{ActionRequest, Mode, Sections, SortKey, State, View};
 pub use theme::Theme;
 
 /// Dibuja un cuadro completo: barra superior, vista actual, línea de
@@ -56,6 +57,10 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
     match state.view {
         View::Grid => grid::draw(buf, body, state, store),
         View::Detail => detail::draw(buf, body, state, store),
+    }
+    // Los diálogos van encima de la vista.
+    if let Mode::Confirm(request) = &state.mode {
+        dialog::draw_confirm(buf, body, state, request);
     }
 }
 
@@ -271,6 +276,32 @@ mod tests {
         state.back_to_grid();
         assert_eq!(render_to_text(40, 16, &mut state, &mut store), grid_before);
         assert_eq!(state.scroll, scroll);
+    }
+
+    #[test]
+    fn confirm_dialog_snapshot() {
+        let mut state = detail_state();
+        state.lineage = vec![4222];
+        state.ask_signal(crate::actions::Signal::SIGTERM);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        insta::assert_snapshot!(text);
+        assert!(text.contains("¿Enviar SIGTERM a Firefox?"));
+        assert!(text.contains("2 procesos afectados"));
+        assert!(text.contains("[s] sí     [n] no"));
+    }
+
+    #[test]
+    fn messages_replace_the_shortcut_bar_until_they_expire() {
+        let mut state = detail_state();
+        state.notify("SIGTERM enviada a 3 procesos de Firefox", false);
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert_eq!(
+            text.lines().last(),
+            Some("SIGTERM enviada a 3 procesos de Firefox")
+        );
+        state.clock += 60.0;
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        assert!(text.lines().last().unwrap().contains("Esc volver"));
     }
 
     #[test]

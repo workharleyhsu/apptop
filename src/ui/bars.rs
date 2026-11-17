@@ -123,12 +123,21 @@ impl Hint {
 
 /// Atajos disponibles según la vista y el modo.
 pub fn hints(state: &State) -> Vec<Hint> {
-    if state.mode == Mode::Filter {
-        return vec![
-            Hint::new("Enter", "aplicar", 9),
-            Hint::new("Esc", "borrar filtro", 8),
-            Hint::new("←↑↓→", "mover", 1),
-        ];
+    match state.mode {
+        Mode::Filter => {
+            return vec![
+                Hint::new("Enter", "aplicar", 9),
+                Hint::new("Esc", "borrar filtro", 8),
+                Hint::new("←↑↓→", "mover", 1),
+            ]
+        }
+        Mode::Confirm(_) => {
+            return vec![
+                Hint::new("s", "confirmar", 9),
+                Hint::new("n/Esc", "cancelar", 9),
+            ]
+        }
+        Mode::Normal => {}
     }
     match state.view {
         View::Grid => {
@@ -138,6 +147,8 @@ pub fn hints(state: &State) -> Vec<Hint> {
                 Hint::new("/", "filtrar", 5),
                 Hint::new("s", format!("orden: {}", state.sort.label()), 4),
                 Hint::new("Tab", format!("ver: {}", state.sections.label()), 3),
+                Hint::new("x", "cerrar", 7),
+                Hint::new("K", "matar", 6),
                 Hint::new("+/-", "refresco", 2),
             ];
             if !state.filter.is_empty() {
@@ -148,6 +159,8 @@ pub fn hints(state: &State) -> Vec<Hint> {
         }
         View::Detail => vec![
             Hint::new("↑↓/jk", "elegir proceso", 3),
+            Hint::new("x", "cerrar", 6),
+            Hint::new("K", "matar", 5),
             Hint::new("Esc", "volver", 8),
             Hint::new("q", "salir", 9),
         ],
@@ -180,6 +193,17 @@ pub fn draw_bottom(buf: &mut Buffer, area: Rect, state: &State) {
         return;
     }
     let theme = state.theme;
+    // Un aviso vigente ocupa el lugar de los atajos.
+    if let Some(message) = state.current_message() {
+        let color = if message.is_error {
+            theme.load(100.0)
+        } else {
+            theme.load(0.0)
+        };
+        let style = Style::default().fg(color).add_modifier(Modifier::BOLD);
+        buf.set_stringn(area.x, area.y, &message.text, area.width as usize, style);
+        return;
+    }
     let key_style = Style::default()
         .fg(theme.accent())
         .add_modifier(Modifier::BOLD);
@@ -222,7 +246,7 @@ mod tests {
         assert_eq!(keys(&s)[0], "Enter");
         s.mode = Mode::Normal;
         s.view = View::Detail;
-        assert_eq!(keys(&s), vec!["↑↓/jk", "Esc", "q"]);
+        assert_eq!(keys(&s), vec!["↑↓/jk", "x", "K", "Esc", "q"]);
     }
 
     #[test]
@@ -230,17 +254,26 @@ mod tests {
         let mut s = State::new(super::super::Theme::default());
         s.filter = "x".into();
         let all = hints(&s);
-        let keys = |width: usize| -> Vec<String> {
-            fit_hints(hints(&s), width)
+        fn fitted(s: &State, width: usize) -> Vec<String> {
+            fit_hints(hints(s), width)
                 .into_iter()
                 .map(|h| h.key)
                 .collect()
-        };
+        }
+        let keys = |width: usize| fitted(&s, width);
         assert_eq!(keys(200).len(), all.len());
         // Primero se va "mover"; salir y quitar filtro son los últimos.
         assert!(!keys(80).contains(&"←↑↓→/hjkl".to_string()));
         assert!(keys(80).contains(&"q".to_string()));
         assert_eq!(keys(26), vec!["Esc", "q"]);
-        assert_eq!(keys(3).len(), 1, "siempre queda al menos uno");
+        s.mode = Mode::Confirm(crate::ui::state::ActionRequest {
+            signal: crate::actions::Signal::SIGTERM,
+            targets: Vec::new(),
+            label: String::new(),
+            single_process: false,
+            excluded: 0,
+        });
+        assert_eq!(fitted(&s, 200), vec!["s", "n/Esc"]);
+        assert_eq!(fitted(&s, 3).len(), 1, "siempre queda al menos uno");
     }
 }

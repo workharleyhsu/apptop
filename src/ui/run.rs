@@ -1,12 +1,14 @@
 //! Bucle interactivo: terminal real, eventos y refresco periódico.
 
 use std::io::{self, stdout};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture};
 use ratatui::crossterm::execute;
 use ratatui::DefaultTerminal;
 
+use crate::actions::{ancestry, send_signal};
 use crate::apps::Sampler;
 use crate::icons::IconStore;
 
@@ -43,6 +45,7 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
     let mut sampler = Sampler::new();
     let mut store = IconStore::new();
     let mut state = State::new(Theme::detect());
+    state.lineage = ancestry(Path::new("/proc"), std::process::id() as i32);
     state.refresh = clamp_refresh(options.refresh);
 
     // La primera muestra con CPU % necesita un intervalo; se muestra antes
@@ -67,6 +70,17 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
                 Outcome::Quit => return Ok(()),
                 Outcome::Redraw => dirty = true,
                 Outcome::Ignored => {}
+            }
+            // Una acción confirmada se ejecuta acá, fuera del manejo de teclas.
+            if let Some(request) = state.pending.take() {
+                let report = send_signal(&request.targets, request.signal);
+                state.notify(
+                    report.summary(request.signal, &request.label),
+                    report.is_problem(),
+                );
+                // Refresca pronto para reflejar el efecto de la señal.
+                next_sample = Instant::now() + Duration::from_millis(150);
+                dirty = true;
             }
             // Al entrar al detalle se mide enseguida, sin esperar al intervalo.
             if state.detail_target().is_some() && state.detail_of_selected().is_none() {

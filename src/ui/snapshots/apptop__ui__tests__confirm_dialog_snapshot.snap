@@ -1,0 +1,28 @@
+---
+source: src/ui/mod.rs
+expression: text
+---
+apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servicios
+                          Firefox                           CPU 23.5%  tope 200%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢠⣤⡄
+⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  Usuario    ana                               ⢸⣿⡇
+⢸                      ⡇  Activa     2h 03m                            ⢸⣿⡇
+⢸                      ⡇  Procesos   3 · 172 hilos               ⣀⣀⣀⣀⣀⣤⣼⣿⣷⣶⣶⣾⣿⣿⣿
+⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G   tope 6.6G
+⢸              ╭─ Cerrar aplicación ───────────────────────────╮
+⢸              │ ¿Enviar SIGTERM a Firefox?                    │   ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
+⢸              │ 2 procesos afectados                          │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│ (se excluye 1 proceso del que depende apptop) │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+               │                                               │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+               │ [s] sí     [n] no                             │
+     PID  PROCE╰───────────────────────────────────────────────╯HILOS  ESTADO
+    4100  firefox                                   1.5    900M   120  S duerme
+    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S duerme
+    4222  └─ firefox                               97.2    250M    22  T pausado
+
+
+
+
+
+s confirmar  n/Esc cancelar

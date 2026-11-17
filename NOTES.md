@@ -168,3 +168,17 @@ Decisiones y problemas, por iteración.
 - `Esc`/Backspace vuelven del detalle sin tocar selección, scroll, orden ni filtro (ya salía
   así de la iteración 10); se agregaron tests que lo fijan, incluido que el cuadro de la
   grilla se redibuja idéntico.
+
+## Iteración 21 — cerrar y matar
+- `x` = SIGTERM, `K` (mayúscula, para no confundir con "arriba") = SIGKILL. Siempre pasan por
+  un diálogo que muestra nombre y cantidad de procesos; solo `s`/`y` confirma, cualquier otra
+  tecla cancela y el mouse queda inactivo mientras está abierto.
+- El manejo de teclas solo deja la acción en `State::pending`; el bucle la ejecuta. Así los
+  tests de entrada nunca envían señales.
+- Guardas en `actions/signal.rs`: antes de cada `kill` se compara el `starttime` (pid
+  reutilizado → no se toca); nunca pid ≤ 1; apptop se excluye siempre, y con señales de
+  detención también sus ancestros (shell y terminal), para no congelar la interfaz.
+- Verificación de punta a punta SIN tocar procesos ajenos: `systemd-run --user --scope
+  --unit=app-apptoptestNNN-1.scope` con dos `sleep` propios; se comprueba que `--list` vea
+  exactamente esos PIDs y recién entonces la TUI (bajo pty) filtra por ese nombre, `x`, `n`
+  (siguen vivos) y `x`, `s` (terminan los 3).

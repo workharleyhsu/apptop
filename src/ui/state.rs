@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use std::collections::HashMap;
 
+use crate::actions::{filter_targets, Signal, Target};
 use crate::apps::{App, AppKind, DetailData, Sample};
 use crate::collect::SystemStats;
 use crate::icons::GRID_ICON;
@@ -108,13 +109,54 @@ impl Sections {
 }
 
 /// Modo de entrada del teclado.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum Mode {
     #[default]
     Normal,
     /// Escribiendo el texto del filtro.
     Filter,
+    /// Esperando confirmación (s/n) de una acción.
+    Confirm(ActionRequest),
 }
+
+/// Una señal lista para enviarse a un conjunto de procesos.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActionRequest {
+    pub signal: Signal,
+    pub targets: Vec<Target>,
+    /// Nombre de la app, o del proceso si es uno solo.
+    pub label: String,
+    /// `true` si apunta a un único proceso del árbol y no a toda la app.
+    pub single_process: bool,
+    /// Procesos dejados afuera para no afectar al propio apptop.
+    pub excluded: usize,
+}
+
+impl ActionRequest {
+    /// Título del diálogo de confirmación.
+    pub fn title(&self) -> &'static str {
+        match (self.signal, self.single_process) {
+            (Signal::SIGTERM, false) => "Cerrar aplicación",
+            (Signal::SIGTERM, true) => "Cerrar proceso",
+            (Signal::SIGKILL, false) => "Matar aplicación",
+            (Signal::SIGKILL, true) => "Matar proceso",
+            (_, false) => "Enviar señal a la aplicación",
+            (_, true) => "Enviar señal al proceso",
+        }
+    }
+}
+
+/// Aviso breve que se muestra en la barra inferior.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Message {
+    pub text: String,
+    pub is_error: bool,
+    /// Instante (`State::clock`) hasta el que se muestra.
+    pub until: f64,
+}
+
+/// Segundos que permanece un aviso en pantalla.
+pub const MESSAGE_SECS: f64 = 5.0;
 
 /// Límites del intervalo de refresco.
 pub const MIN_REFRESH: Duration = Duration::from_millis(250);
@@ -147,6 +189,12 @@ pub struct State {
     /// Segundos transcurridos al tomar la última muestra.
     pub clock: f64,
     started: std::time::Instant,
+    /// apptop y sus ancestros (pid propio primero): nunca se les envían
+    /// señales que congelarían o matarían la interfaz.
+    pub lineage: Vec<i32>,
+    /// Acción confirmada que el bucle principal debe ejecutar.
+    pub pending: Option<ActionRequest>,
+    pub message: Option<Message>,
     /// Proceso elegido en el árbol del detalle; `None` = toda la app.
     pub proc_selected: Option<i32>,
     /// Dónde quedó dibujado el árbol de procesos.
@@ -179,6 +227,9 @@ impl State {
             system: SystemStats::default(),
             ticks_per_second: 100.0,
             detail: None,
+            lineage: Vec::new(),
+            pending: None,
+            message: None,
             history: HashMap::new(),
             clock: 0.0,
             started: std::time::Instant::now(),
@@ -425,6 +476,86 @@ impl State {
             .clone()
     }
 
+    /// Procesos sobre los que actúa una acción ahora mismo: el proceso
+    /// elegido en el árbol del detalle, o todos los de la app seleccionada.
+    /// Devuelve (objetivos, nombre a mostrar, ¿es un solo proceso?).
+    pub fn action_scope(&self) -> Option<(Vec<Target>, String, bool)> {
+        let app = self.selected_app()?;
+        let target = |p: &crate::collect::ProcInfo| Target {
+            pid: p.pid,
+            starttime: p.starttime,
+        };
+        let chosen = match (self.view, self.proc_selected) {
+            (View::Detail, Some(pid)) => app.procs.iter().find(|p| p.pid == pid),
+            _ => None,
+        };
+        Some(match chosen {
+            Some(proc) => (
+                vec![target(proc)],
+                format!("{} (pid {})", proc.name, proc.pid),
+                true,
+            ),
+            None => (
+                app.procs.iter().map(target).collect(),
+                app.name.clone(),
+                false,
+            ),
+        })
+    }
+
+    /// Prepara el envío de `signal`. Devuelve `None` (y deja un aviso) si no
+    /// queda ningún proceso al que enviarla.
+    pub fn build_request(&mut self, signal: Signal) -> Option<ActionRequest> {
+        let (targets, label, single_process) = self.action_scope()?;
+        let (targets, excluded) = filter_targets(&targets, signal, &self.lineage);
+        if targets.is_empty() {
+            self.notify(
+                "No se puede: afectaría al propio apptop o a su terminal",
+                true,
+            );
+            return None;
+        }
+        Some(ActionRequest {
+            signal,
+            targets,
+            label,
+            single_process,
+            excluded,
+        })
+    }
+
+    /// Pide confirmación para enviar `signal` (cerrar, matar).
+    pub fn ask_signal(&mut self, signal: Signal) {
+        if let Some(request) = self.build_request(signal) {
+            self.mode = Mode::Confirm(request);
+        }
+    }
+
+    /// Respuesta al diálogo: con `true` la acción queda lista para ejecutar.
+    pub fn answer_confirm(&mut self, yes: bool) {
+        if let Mode::Confirm(request) = std::mem::take(&mut self.mode) {
+            if yes {
+                self.pending = Some(request);
+            } else {
+                self.notify("Cancelado", false);
+            }
+        }
+    }
+
+    /// Muestra un aviso durante unos segundos.
+    pub fn notify(&mut self, text: impl Into<String>, is_error: bool) {
+        self.message = Some(Message {
+            text: text.into(),
+            is_error,
+            until: self.clock + MESSAGE_SECS,
+        });
+    }
+
+    /// Aviso vigente, si lo hay.
+    pub fn current_message(&self) -> Option<&Message> {
+        self.message.as_ref().filter(|m| self.clock <= m.until)
+    }
+
     /// Mueve el cursor del árbol de procesos `delta` filas. Por encima de la
     /// primera fila no hay proceso elegido: las acciones valen para toda la app.
     pub fn move_proc_cursor(&mut self, delta: isize) {
@@ -602,7 +733,7 @@ pub(crate) mod tests {
         s.filter_push('r');
         assert_eq!(names(&s), vec!["Firefox", "pipewire"], "'ir' está en ambos");
         s.accept_filter();
-        assert_eq!((s.mode, s.filter.as_str()), (Mode::Normal, "Ir"));
+        assert_eq!((s.mode.clone(), s.filter.as_str()), (Mode::Normal, "Ir"));
         // El filtro sigue aplicado tras un refresco.
         s.set_apps(sample_apps());
         assert_eq!(names(&s).len(), 2);
@@ -691,6 +822,117 @@ pub(crate) mod tests {
         assert!(!s.history.contains_key("App:Firefox"));
         assert_eq!(s.history["Service:docker"].len(), 3);
         assert_eq!(s.clock, 3.0);
+    }
+
+    fn state_with_procs() -> State {
+        use crate::apps::group::tests::proc;
+        let mut s = State::new(Theme::default());
+        let mut a = app("Editor", AppKind::App, 0.0, 1);
+        a.procs = vec![
+            proc(10, 1, "/b/ed", "/"),
+            proc(11, 10, "/b/helper", "/"),
+            proc(12, 10, "/b/ed", "/"),
+        ];
+        s.set_apps(vec![a]);
+        s
+    }
+
+    #[test]
+    fn close_asks_first_and_only_queues_after_yes() {
+        let mut s = state_with_procs();
+        s.ask_signal(Signal::SIGTERM);
+        let Mode::Confirm(request) = s.mode.clone() else {
+            panic!("debe pedir confirmación");
+        };
+        assert_eq!(request.title(), "Cerrar aplicación");
+        assert_eq!(
+            (request.label.as_str(), request.targets.len()),
+            ("Editor", 3)
+        );
+        assert!(s.pending.is_none(), "nada se ejecuta antes de confirmar");
+
+        s.answer_confirm(false);
+        assert!(s.pending.is_none() && s.mode == Mode::Normal);
+        assert_eq!(s.current_message().unwrap().text, "Cancelado");
+
+        s.ask_signal(Signal::SIGKILL);
+        s.answer_confirm(true);
+        let pending = s.pending.take().unwrap();
+        assert_eq!(
+            (pending.signal, pending.targets.len()),
+            (Signal::SIGKILL, 3)
+        );
+        assert_eq!(
+            pending.targets[0],
+            Target {
+                pid: 10,
+                starttime: 10
+            }
+        );
+    }
+
+    #[test]
+    fn actions_target_the_chosen_process_only_inside_detail() {
+        let mut s = state_with_procs();
+        s.proc_selected = Some(11);
+        // En la grilla el cursor de proceso no cuenta.
+        assert_eq!(s.action_scope().unwrap().0.len(), 3);
+        s.enter_detail();
+        s.move_proc_cursor(2);
+        let (targets, label, single) = s.action_scope().unwrap();
+        assert_eq!(
+            targets,
+            vec![Target {
+                pid: 11,
+                starttime: 11
+            }]
+        );
+        assert_eq!((label.as_str(), single), ("helper (pid 11)", true));
+        s.ask_signal(Signal::SIGKILL);
+        let Mode::Confirm(request) = &s.mode else {
+            panic!()
+        };
+        assert_eq!(request.title(), "Matar proceso");
+    }
+
+    #[test]
+    fn apptop_and_its_terminal_are_never_targets() {
+        let mut s = state_with_procs();
+        s.lineage = vec![12, 10, 1];
+        // Cerrar: se excluye solo apptop (pid 12).
+        s.ask_signal(Signal::SIGTERM);
+        let Mode::Confirm(request) = std::mem::take(&mut s.mode) else {
+            panic!()
+        };
+        assert_eq!((request.targets.len(), request.excluded), (2, 1));
+        // Pausar: también su ancestro (pid 10).
+        let request = s.build_request(Signal::SIGSTOP).unwrap();
+        assert_eq!(
+            request.targets,
+            vec![Target {
+                pid: 11,
+                starttime: 11
+            }]
+        );
+        assert_eq!(request.excluded, 2);
+        // Si no queda nadie, no hay diálogo sino un aviso de error.
+        s.enter_detail();
+        s.proc_selected = Some(12);
+        s.ask_signal(Signal::SIGTERM);
+        assert_eq!(s.mode, Mode::Normal);
+        assert!(s.current_message().unwrap().is_error);
+    }
+
+    #[test]
+    fn messages_expire() {
+        let mut s = State::new(Theme::default());
+        s.clock = 10.0;
+        s.notify("hola", false);
+        assert!(s.current_message().is_some());
+        s.clock = 10.0 + MESSAGE_SECS + 0.1;
+        assert!(s.current_message().is_none());
+        s.ask_signal(Signal::SIGTERM);
+        assert_eq!(s.mode, Mode::Normal, "sin app seleccionada no pasa nada");
     }
 
     #[test]
