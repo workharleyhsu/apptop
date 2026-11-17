@@ -8,9 +8,11 @@ use clap::Parser;
 
 use apptop::apps::{group_apps_with, AppKind, DesktopIndex, Sample, Sampler};
 use apptop::collect::Collector;
-use apptop::icons::{BrailleIcon, GenericKind, IconLocator, IconStore, DETAIL_ICON, GRID_ICON};
+use apptop::config::Config;
+use apptop::icons::{BrailleIcon, GenericKind, IconLocator, DETAIL_ICON};
 use apptop::ui::format::human_bytes;
-use apptop::ui::{render_to_text, RunOptions, State, Theme};
+use apptop::ui::state::clamp_refresh;
+use apptop::ui::{render_to_text, RunOptions};
 
 /// Monitor de recursos para terminal centrado en aplicaciones.
 #[derive(Parser, Debug)]
@@ -39,6 +41,14 @@ struct Cli {
     #[arg(long, short = 'r', value_name = "SEGUNDOS")]
     refresh: Option<f64>,
 
+    /// Archivo de configuración (por defecto ~/.config/apptop/config.toml).
+    #[arg(long, value_name = "ARCHIVO")]
+    config: Option<PathBuf>,
+
+    /// Imprime la configuración efectiva en formato TOML y termina.
+    #[arg(long)]
+    print_config: bool,
+
     /// Renderiza un cuadro de la interfaz a texto y termina.
     #[arg(long)]
     snapshot: bool,
@@ -58,17 +68,37 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
+
+    // Configuración: archivo (opcional) y encima las opciones de la línea
+    // de comandos. Las advertencias no impiden arrancar.
+    let (mut config, warnings) = Config::load(cli.config.as_deref());
+    for warning in &warnings {
+        eprintln!("apptop: {warning}");
+    }
+    if let Some(seconds) = cli.refresh.filter(|s| s.is_finite() && *s > 0.0) {
+        config.refresh = clamp_refresh(Duration::from_secs_f64(seconds.min(3600.0)));
+    }
+    if cli.print_config {
+        print!("{}", config.to_toml());
+        return;
+    }
+    let options = RunOptions::from_config(&config);
+
     if cli.list {
-        list_apps();
+        list_apps(&options);
         return;
     }
     if let Some(target) = &cli.dump_icon {
-        let size = if cli.large { DETAIL_ICON } else { GRID_ICON };
-        std::process::exit(dump_icon(target, size, &cli.color));
+        let size = if cli.large {
+            DETAIL_ICON
+        } else {
+            options.icon_size
+        };
+        std::process::exit(dump_icon(target, size, &cli.color, &options));
     }
     if cli.snapshot {
         let (width, height) = parse_size(&cli.size).unwrap_or((100, 30));
-        match snapshot(width, height, cli.app.as_deref()) {
+        match snapshot(width, height, cli.app.as_deref(), &options) {
             Ok(text) => print!("{text}"),
             Err(message) => {
                 eprintln!("apptop: {message}");
@@ -85,11 +115,7 @@ fn main() {
         eprintln!("apptop: la salida no es una terminal; usá --list, --snapshot o --dump-icon");
         std::process::exit(2);
     }
-    let mut options = RunOptions::default();
-    if let Some(seconds) = cli.refresh.filter(|s| s.is_finite() && *s > 0.0) {
-        options.refresh = Duration::from_secs_f64(seconds.min(3600.0));
-    }
-    if let Err(err) = apptop::ui::run(options) {
+    if let Err(err) = apptop::ui::run(&options) {
         eprintln!("apptop: {err}");
         std::process::exit(1);
     }
@@ -123,9 +149,10 @@ fn list_procs() {
     }
 }
 
-fn list_apps() {
+fn list_apps(options: &RunOptions) {
     let apps = sample_once().apps;
-    let locator = IconLocator::detect();
+    let store = options.new_store();
+    let locator = store.locator();
     println!("Tema de iconos: {}\n", locator.theme());
     for (kind, title) in [
         (AppKind::App, "APLICACIONES"),
@@ -191,8 +218,8 @@ fn resolve_icon(target: &str, locator: &IconLocator) -> Option<PathBuf> {
     locator.locate(&icon)
 }
 
-fn dump_icon(target: &str, size: (u16, u16), color: &str) -> i32 {
-    let mut store = IconStore::new();
+fn dump_icon(target: &str, size: (u16, u16), color: &str, options: &RunOptions) -> i32 {
+    let mut store = options.new_store();
     let icon: Arc<BrailleIcon> = if let Some(kind) = GenericKind::from_name(target) {
         eprintln!("{}", kind.name());
         store.generic(kind, size.0, size.1)
@@ -223,8 +250,7 @@ fn dump_icon(target: &str, size: (u16, u16), color: &str) -> i32 {
         _ => std::io::stdout().is_terminal(),
     };
     if colored {
-        let truecolor = std::env::var("COLORTERM").is_ok_and(|v| v == "truecolor" || v == "24bit");
-        print!("{}", icon.to_ansi(truecolor));
+        print!("{}", icon.to_ansi(options.theme.truecolor));
     } else {
         print!("{}", icon.to_plain());
     }
@@ -244,8 +270,13 @@ fn sample_once() -> Sample {
     sampler.sample()
 }
 
-fn snapshot(width: u16, height: u16, app: Option<&str>) -> Result<String, String> {
-    let mut state = State::new(Theme::detect());
+fn snapshot(
+    width: u16,
+    height: u16,
+    app: Option<&str>,
+    options: &RunOptions,
+) -> Result<String, String> {
+    let mut state = options.new_state();
     let mut sampler = Sampler::new();
     sleep(Duration::from_millis(250));
     state.apply(sampler.sample());
@@ -279,6 +310,6 @@ fn snapshot(width: u16, height: u16, app: Option<&str>) -> Result<String, String
         width,
         height,
         &mut state,
-        &mut IconStore::new(),
+        &mut options.new_store(),
     ))
 }

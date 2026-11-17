@@ -1,0 +1,20 @@
+---
+source: src/ui/mod.rs
+expression: text
+---
+apptop  CPU n/d  RAM n/d  Swap n/d
+── Aplicaciones (3) ────────────────────────────────────────
+╭⢠⣤⣤⢤⡤⠤⠤⡄╮ ⢠⣤⣤⢤⡤⠤⠤⡄  ⢠⣤⣤⢤⡤⠤⠤⡄
+│⢸⠛⠛⠚⠓⠒⠒⡇│ ⢸⠛⠛⠚⠓⠒⠒⡇  ⢸⠛⠛⠚⠓⠒⠒⡇
+│⢸      ⡇│ ⢸      ⡇  ⢸      ⡇
+│⠘⠒⠒⠒⠒⠒⠒⠃│ ⠘⠒⠒⠒⠒⠒⠒⠃  ⠘⠒⠒⠒⠒⠒⠒⠃
+│Alacrit…│ Firefox   Un nomb…
+╰2% 310M ╯ 24% 5.3G  120% 12M
+
+── Servicios (2) ───────────────────────────────────────────
+  ⣠⣄⡔⢢⣠⣄    ⣠⣄⡔⢢⣠⣄
+ ⢀⠽⢠⠖⠲⡄⠯⡀  ⢀⠽⢠⠖⠲⡄⠯⡀
+ ⠈⣲⠘⠦⠴⠃⣖⠁  ⠈⣲⠘⠦⠴⠃⣖⠁
+  ⠙⠋⠣⠜⠙⠋    ⠙⠋⠣⠜⠙⠋
+  docker   pipewire
+Enter abrir  / filtrar  x cerrar  K matar  p pausar  q salir

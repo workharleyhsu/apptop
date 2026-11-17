@@ -10,29 +10,74 @@ use ratatui::DefaultTerminal;
 
 use crate::actions::{ancestry, send_signal, set_nice};
 use crate::apps::Sampler;
-use crate::icons::IconStore;
+use crate::config::{ColorMode, Config};
+use crate::icons::cache::default_cache_dir;
+use crate::icons::{IconLocator, IconStore};
 
 use super::input::{handle_event, Outcome};
-use super::state::{clamp_refresh, State};
-use super::theme::Theme;
+use super::state::{clamp_refresh, SortKey, State};
+use super::theme::{terminal_has_truecolor, Theme, DEFAULT_ACCENT};
 
-/// Opciones de la sesión interactiva.
-#[derive(Debug, Clone, Copy)]
+/// Opciones de la sesión interactiva (configuración + línea de comandos).
+#[derive(Debug, Clone, PartialEq)]
 pub struct RunOptions {
     /// Intervalo entre muestras.
     pub refresh: Duration,
+    pub sort: SortKey,
+    /// Tamaño de los iconos de la grilla, en celdas.
+    pub icon_size: (u16, u16),
+    pub theme: Theme,
+    /// Tema de iconos; `None` = detectar.
+    pub icon_theme: Option<String>,
 }
 
 impl Default for RunOptions {
     fn default() -> Self {
+        Self::from_config(&Config::default())
+    }
+}
+
+impl RunOptions {
+    pub fn from_config(config: &Config) -> Self {
+        let truecolor = match config.color {
+            ColorMode::Auto => terminal_has_truecolor(),
+            ColorMode::Truecolor => true,
+            ColorMode::Palette256 => false,
+        };
         Self {
-            refresh: Duration::from_secs(1),
+            refresh: config.refresh,
+            sort: config.sort,
+            icon_size: config.icon_size.cells(),
+            theme: Theme {
+                truecolor,
+                accent_rgb: config.accent.unwrap_or(DEFAULT_ACCENT),
+            },
+            icon_theme: config.icon_theme.clone(),
+        }
+    }
+
+    /// Estado inicial de la interfaz con estas opciones.
+    pub fn new_state(&self) -> State {
+        let mut state = State::new(self.theme);
+        state.refresh = clamp_refresh(self.refresh);
+        state.sort = self.sort;
+        state.icon_size = self.icon_size;
+        state
+    }
+
+    /// Almacén de iconos con el tema elegido.
+    pub fn new_store(&self) -> IconStore {
+        match &self.icon_theme {
+            Some(theme) => {
+                IconStore::with(IconLocator::with_theme(theme.clone()), default_cache_dir())
+            }
+            None => IconStore::new(),
         }
     }
 }
 
 /// Ejecuta la interfaz hasta que el usuario sale.
-pub fn run(options: RunOptions) -> io::Result<()> {
+pub fn run(options: &RunOptions) -> io::Result<()> {
     let mut terminal = ratatui::try_init()?;
     let result =
         execute!(stdout(), EnableMouseCapture).and_then(|()| event_loop(&mut terminal, options));
@@ -41,12 +86,11 @@ pub fn run(options: RunOptions) -> io::Result<()> {
     result
 }
 
-fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result<()> {
+fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Result<()> {
     let mut sampler = Sampler::new();
-    let mut store = IconStore::new();
-    let mut state = State::new(Theme::detect());
+    let mut store = options.new_store();
+    let mut state = options.new_state();
     state.lineage = ancestry(Path::new("/proc"), std::process::id() as i32);
-    state.refresh = clamp_refresh(options.refresh);
 
     // La primera muestra con CPU % necesita un intervalo; se muestra antes
     // una sin porcentajes para no arrancar con la pantalla vacía.
@@ -105,5 +149,41 @@ fn event_loop(terminal: &mut DefaultTerminal, options: RunOptions) -> io::Result
             next_sample = Instant::now() + state.refresh;
             dirty = true;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::IconSize;
+
+    #[test]
+    fn options_carry_the_config_into_the_initial_state() {
+        let config = Config {
+            refresh: Duration::from_millis(2500),
+            sort: SortKey::Ram,
+            icon_size: IconSize::Small,
+            color: ColorMode::Palette256,
+            accent: Some((9, 8, 7)),
+            icon_theme: Some("Adwaita".into()),
+        };
+        let options = RunOptions::from_config(&config);
+        let state = options.new_state();
+        assert_eq!(state.refresh, Duration::from_millis(2500));
+        assert_eq!(state.sort, SortKey::Ram);
+        assert_eq!(state.icon_size, (8, 4));
+        assert!(!state.theme.truecolor);
+        assert_eq!(state.theme.accent_rgb, (9, 8, 7));
+        assert_eq!(options.new_store().locator().theme(), "Adwaita");
+    }
+
+    #[test]
+    fn forcing_truecolor_ignores_the_environment() {
+        let config = Config {
+            color: ColorMode::Truecolor,
+            ..Config::default()
+        };
+        assert!(RunOptions::from_config(&config).theme.truecolor);
+        assert_eq!(RunOptions::default().icon_size, (16, 8));
     }
 }

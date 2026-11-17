@@ -166,6 +166,21 @@ mod tests {
     }
 
     #[test]
+    fn small_icons_keep_every_tile_inside_its_own_columns() {
+        let mut state = State::new(Theme::default());
+        state.icon_size = (8, 4);
+        state.set_apps(state::tests::sample_apps());
+        let text = render_to_text(60, 16, &mut state, &mut test_store());
+        insta::assert_snapshot!(text);
+        // Baldosas de 10 columnas: 6 por fila en 60 columnas.
+        assert_eq!(state.layout.columns, 6);
+        assert!(
+            text.contains("24% 5.3G") && text.contains("120% 12M"),
+            "{text}"
+        );
+    }
+
+    #[test]
     fn bars_show_totals_and_shortcuts_and_nd_when_unknown() {
         let mut state = State::new(Theme::default());
         state.set_apps(state::tests::sample_apps());

@@ -136,6 +136,36 @@ fn section_title(kind: AppKind) -> &'static str {
     }
 }
 
+/// Textos de CPU y RAM que entran juntos en `width` columnas. Con iconos
+/// chicos se van quitando decimales y, si aun así no entra, queda solo la CPU.
+pub fn stats_text(cpu_pct: f32, rss: u64, width: usize) -> (String, String) {
+    let ram = human_bytes(rss);
+    let short_ram = || {
+        // `1.5G` → `2G`: sin decimal.
+        let unit = ram.chars().last().filter(|c| c.is_alphabetic());
+        let number: f64 = ram
+            .trim_end_matches(char::is_alphabetic)
+            .parse()
+            .unwrap_or(0.0);
+        match unit {
+            Some(unit) => format!("{number:.0}{unit}"),
+            None => ram.clone(),
+        }
+    };
+    let candidates = [
+        (format!("{cpu_pct:.1}%"), ram.clone()),
+        (format!("{cpu_pct:.0}%"), ram.clone()),
+        (format!("{cpu_pct:.0}%"), short_ram()),
+    ];
+    for (cpu, ram) in candidates {
+        if cpu.chars().count() + 1 + ram.chars().count() <= width {
+            return (cpu, ram);
+        }
+    }
+    let cpu: String = format!("{cpu_pct:.0}%").chars().take(width).collect();
+    (cpu, String::new())
+}
+
 /// Icono de una app: el de su `.desktop`, o el genérico según el tipo.
 pub fn icon_for(app: &App, store: &mut IconStore, size: (u16, u16)) -> std::sync::Arc<BrailleIcon> {
     let fallback = match app.kind {
@@ -233,8 +263,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
             put(buf, area, scroll, tile.x + SIDE_PAD, y, &label, style);
         } else {
             // Resumen: CPU coloreada por carga y RAM atenuada, centrados juntos.
-            let cpu = format!("{:.1}%", app.cpu_pct);
-            let ram = human_bytes(app.rss);
+            let (cpu, ram) = stats_text(app.cpu_pct, app.rss, icon_w as usize);
             let used = cpu.chars().count() + 1 + ram.chars().count();
             let start = tile.x + SIDE_PAD + (icon_w as usize).saturating_sub(used) as u16 / 2;
             let stats_y = tile.y + icon_h + 1;
@@ -272,6 +301,40 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
 mod tests {
     use super::*;
     use AppKind::{App as A, Service as S};
+
+    #[test]
+    fn stats_shrink_to_fit_small_icons() {
+        let gib = 1u64 << 30;
+        assert_eq!(
+            stats_text(11.04, 59 * gib / 10, 16),
+            ("11.0%".into(), "5.9G".into())
+        );
+        // 8 columnas: sin decimal en la CPU.
+        assert_eq!(
+            stats_text(11.04, 59 * gib / 10, 8),
+            ("11%".into(), "5.9G".into())
+        );
+        // "120% 12.0M" no entra en 8: también se redondea la RAM.
+        assert_eq!(
+            stats_text(120.0, 12 << 20, 8),
+            ("120%".into(), "12M".into())
+        );
+        assert_eq!(
+            stats_text(120.0, 12 << 20, 5),
+            ("120%".into(), String::new())
+        );
+        assert_eq!(stats_text(5.0, 0, 16), ("5.0%".into(), "0B".into()));
+        for width in 0..20 {
+            let (cpu, ram) = stats_text(1234.5, 999 * gib, width);
+            let used = cpu.chars().count()
+                + if ram.is_empty() {
+                    0
+                } else {
+                    1 + ram.chars().count()
+                };
+            assert!(used <= width, "{width}: {cpu} {ram}");
+        }
+    }
 
     #[test]
     fn adapts_columns_to_the_width() {

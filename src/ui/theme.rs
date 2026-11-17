@@ -10,13 +10,25 @@ use crate::icons::color::to_ansi256;
 pub struct Theme {
     /// Usar colores de 24 bits; si no, se degradan a la paleta de 256.
     pub truecolor: bool,
+    /// Color de selección y atajos.
+    pub accent_rgb: (u8, u8, u8),
+}
+
+/// Color de acento de fábrica.
+pub const DEFAULT_ACCENT: (u8, u8, u8) = (122, 162, 247);
+
+/// ¿La terminal anuncia soporte de 24 bits?
+pub fn terminal_has_truecolor() -> bool {
+    std::env::var("COLORTERM").is_ok_and(|v| v == "truecolor" || v == "24bit")
 }
 
 impl Theme {
     /// Detecta truecolor por la variable `COLORTERM`.
     pub fn detect() -> Self {
-        let truecolor = std::env::var("COLORTERM").is_ok_and(|v| v == "truecolor" || v == "24bit");
-        Self { truecolor }
+        Self {
+            truecolor: terminal_has_truecolor(),
+            accent_rgb: DEFAULT_ACCENT,
+        }
     }
 
     /// Convierte un RGB al mejor color que la terminal soporta.
@@ -29,7 +41,7 @@ impl Theme {
     }
 
     pub fn accent(&self) -> Color {
-        self.rgb((122, 162, 247))
+        self.rgb(self.accent_rgb)
     }
 
     pub fn text(&self) -> Style {
@@ -64,7 +76,10 @@ impl Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        Self { truecolor: true }
+        Self {
+            truecolor: true,
+            accent_rgb: DEFAULT_ACCENT,
+        }
     }
 }
 
@@ -74,11 +89,24 @@ mod tests {
 
     #[test]
     fn degrades_to_256_colours() {
-        let full = Theme { truecolor: true };
-        let low = Theme { truecolor: false };
+        let full = Theme::default();
+        let low = Theme {
+            truecolor: false,
+            ..Theme::default()
+        };
         assert_eq!(full.rgb((255, 0, 0)), Color::Rgb(255, 0, 0));
         assert_eq!(low.rgb((255, 0, 0)), Color::Indexed(196));
         assert!(matches!(low.accent(), Color::Indexed(_)));
+    }
+
+    #[test]
+    fn accent_is_configurable() {
+        let theme = Theme {
+            accent_rgb: (255, 136, 0),
+            ..Theme::default()
+        };
+        assert_eq!(theme.accent(), Color::Rgb(255, 136, 0));
+        assert_eq!(theme.selected().fg, Some(Color::Rgb(255, 136, 0)));
     }
 
     #[test]

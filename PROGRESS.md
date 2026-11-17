@@ -39,7 +39,7 @@
 - [x] Tests de acciones usando solo procesos `sleep` lanzados por el test.
 
 ## Fase 6 — Pulido
-- [ ] Config en `~/.config/apptop/config.toml` (refresco, orden, tamaño de icono, tema).
+- [x] Config en `~/.config/apptop/config.toml` (refresco, orden, tamaño de icono, tema).
 - [ ] Manejo de resize, terminales chicas (mensaje si es menor a 80x24) y restauración
       de la terminal ante panic.
 - [ ] Rendimiento: medir y optimizar hasta cumplir los criterios.

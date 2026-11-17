@@ -216,3 +216,14 @@ Decisiones y problemas, por iteración.
 - `tests/stress.rs` (criterio de aceptación): un hilo crea y mata tandas de 8 `sleep` cada
   2 ms durante 3 s mientras se muestrea con detalle (PSS, disco, GPU, red) y se dibuja.
 - Tras correr la suite no queda ningún `sleep 600` vivo.
+
+## Iteración 26 — configuración
+- `~/.config/apptop/config.toml` (o `--config <archivo>`): `refresh`, `sort`, `icon_size`
+  (small 8×4 / medium 12×6 / large 16×8) y `[theme]` con `color` (auto/truecolor/256),
+  `accent` (#rrggbb) e `icons` (tema de iconos). `--print-config` muestra la efectiva.
+- Tolerante: se valida clave por clave; lo inválido o desconocido genera una advertencia en
+  stderr y usa el valor por defecto. TOML roto → todo por defecto. Un archivo ausente solo se
+  avisa si se pidió con `--config`. La línea de comandos (`--refresh`) pisa al archivo.
+- `toml` fijado en `~1.1`: la 1.2.1 pide `toml_writer ^1.2.0`, que no resolvía en el índice.
+- Con iconos chicos el resumen se acorta por pasos ("11.0% 5.9G" → "11% 5.9G" → "120% 12M"
+  → solo CPU) para no invadir la baldosa vecina.
