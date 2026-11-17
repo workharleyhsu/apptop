@@ -38,3 +38,9 @@ Decisiones y problemas, por iteración.
   genéricos (sh, python, env...): `fish.desktop` no debe partir una terminal.
 - Los servicios nunca se parten; solo toman icono (y nombre si son `app-*.service`).
 - La ruta real del icono se resuelve en la tarea siguiente (Fase 2); acá queda `Icon=`.
+
+## Iteración 5 — localizar iconos
+- `freedesktop_icons::lookup` ya hace tema → padres → hicolor → pixmaps. NO se usa su
+  `default_theme_gtk()` porque ejecuta `gsettings`: el tema se lee de `gtk-4.0/settings.ini`,
+  `gtk-3.0/settings.ini`, `kdeglobals` o `xsettingsd.conf` (o `APPTOP_ICON_THEME`).
+- Se pide tamaño 128 para reducir (no ampliar) antes de detectar bordes. Solo SVG/PNG (no XPM).

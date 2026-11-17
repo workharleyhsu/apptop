@@ -7,7 +7,7 @@
 - [x] Asociación con `.desktop` (nombre visible + ruta del icono).
 
 ## Fase 2 — Iconos
-- [ ] Localizar icono según tema activo, con fallback a hicolor y pixmaps.
+- [x] Localizar icono según tema activo, con fallback a hicolor y pixmaps.
 - [ ] Pipeline SVG/PNG → bordes → braille + color dominante. `--dump-icon` funcionando.
 - [ ] Iconos genéricos (servicio, app sin icono) en el mismo estilo.
 - [ ] Caché en disco.

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 freedesktop-desktop-entry = { version = "0.8", default-features = false }
+freedesktop-icons = "0.4"
 procfs = { version = "0.18", default-features = false }
 
 [dev-dependencies]

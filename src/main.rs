@@ -5,6 +5,7 @@ use clap::Parser;
 
 use apptop::apps::{group_apps_with, AppKind, DesktopIndex};
 use apptop::collect::Collector;
+use apptop::icons::IconLocator;
 use apptop::ui::format::human_bytes;
 
 /// Monitor de recursos para terminal centrado en aplicaciones.
@@ -66,6 +67,8 @@ fn list_apps() {
     collector.sample();
     sleep(Duration::from_millis(250));
     let index = DesktopIndex::load();
+    let locator = IconLocator::detect();
+    println!("Tema de iconos: {}\n", locator.theme());
     let apps = group_apps_with(collector.sample(), Some(&index));
     for (kind, title) in [
         (AppKind::App, "APLICACIONES"),
@@ -74,26 +77,27 @@ fn list_apps() {
         let section: Vec<_> = apps.iter().filter(|a| a.kind == kind).collect();
         println!("== {title} ({}) ==", section.len());
         println!(
-            "{:<28} {:<13} {:>5} {:>6} {:>9}  {:<28} PIDS",
-            "NOMBRE", "TIPO", "PROCS", "CPU%", "RAM", "ICONO"
+            "{:<28} {:<13} {:>5} {:>6} {:>9}  PIDS / ICONO",
+            "NOMBRE", "TIPO", "PROCS", "CPU%", "RAM"
         );
         for app in section {
             let pids: Vec<String> = app.procs.iter().map(|p| p.pid.to_string()).collect();
-            let icon = app
-                .desktop
-                .as_ref()
-                .and_then(|d| d.icon.as_deref())
-                .unwrap_or("-");
             println!(
-                "{:<28} {:<13} {:>5} {:>6.1} {:>9}  {:<28} {}",
+                "{:<28} {:<13} {:>5} {:>6.1} {:>9}  {}",
                 truncate(&app.name, 28),
                 app.origin.label(),
                 app.procs.len(),
                 app.cpu_pct,
                 human_bytes(app.rss),
-                truncate(icon, 28),
                 pids.join(",")
             );
+            if let Some(icon) = app.desktop.as_ref().and_then(|d| d.icon.as_deref()) {
+                let path = locator
+                    .locate(icon)
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "n/d".into());
+                println!("{:<28} icono: {icon} -> {path}", "");
+            }
         }
         println!();
     }
