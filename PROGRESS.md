@@ -13,7 +13,7 @@
 - [x] Caché en disco.
 
 ## Fase 3 — Pantalla principal
-- [ ] Grilla de iconos adaptable, con nombre + CPU/RAM bajo cada uno. `--snapshot`.
+- [x] Grilla de iconos adaptable, con nombre + CPU/RAM bajo cada uno. `--snapshot`.
 - [ ] Navegación: flechas y hjkl, Enter para entrar, mouse (clic y scroll), `q` salir.
 - [ ] Orden (CPU, RAM, nombre), filtro por texto (`/`), separación apps / servicios.
 - [ ] Barra superior con totales del sistema (CPU, RAM, swap) y barra inferior de atajos.

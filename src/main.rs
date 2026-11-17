@@ -10,6 +10,7 @@ use apptop::apps::{group_apps_with, AppKind, DesktopIndex};
 use apptop::collect::Collector;
 use apptop::icons::{BrailleIcon, GenericKind, IconLocator, IconStore, DETAIL_ICON, GRID_ICON};
 use apptop::ui::format::human_bytes;
+use apptop::ui::{render_to_text, State, Theme};
 
 /// Monitor de recursos para terminal centrado en aplicaciones.
 #[derive(Parser, Debug)]
@@ -34,6 +35,14 @@ struct Cli {
     #[arg(long, value_name = "MODO", default_value = "auto")]
     color: String,
 
+    /// Renderiza un cuadro de la interfaz a texto y termina.
+    #[arg(long)]
+    snapshot: bool,
+
+    /// Con `--snapshot`: tamaño del cuadro, por ejemplo `120x40`.
+    #[arg(long, value_name = "ANCHOxALTO", default_value = "100x30")]
+    size: String,
+
     /// Imprime todos los procesos leídos (depuración).
     #[arg(long)]
     list_procs: bool,
@@ -48,6 +57,11 @@ fn main() {
     if let Some(target) = &cli.dump_icon {
         let size = if cli.large { DETAIL_ICON } else { GRID_ICON };
         std::process::exit(dump_icon(target, size, &cli.color));
+    }
+    if cli.snapshot {
+        let (width, height) = parse_size(&cli.size).unwrap_or((100, 30));
+        print!("{}", snapshot(width, height));
+        return;
     }
     if cli.list_procs {
         list_procs();
@@ -194,4 +208,25 @@ fn dump_icon(target: &str, size: (u16, u16), color: &str) -> i32 {
         print!("{}", icon.to_plain());
     }
     0
+}
+
+/// Interpreta `ANCHOxALTO`.
+fn parse_size(text: &str) -> Option<(u16, u16)> {
+    let (w, h) = text.split_once(['x', 'X'])?;
+    Some((w.trim().parse().ok()?, h.trim().parse().ok()?))
+}
+
+/// Toma dos muestras (para tener CPU %) y agrupa en apps.
+fn sample_apps() -> Vec<apptop::apps::App> {
+    let mut collector = Collector::new();
+    collector.sample();
+    sleep(Duration::from_millis(250));
+    let index = DesktopIndex::load();
+    group_apps_with(collector.sample(), Some(&index))
+}
+
+fn snapshot(width: u16, height: u16) -> String {
+    let mut state = State::new(Theme::detect());
+    state.set_apps(sample_apps());
+    render_to_text(width, height, &mut state, &mut IconStore::new())
 }

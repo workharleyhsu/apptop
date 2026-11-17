@@ -18,9 +18,40 @@ pub fn human_bytes(bytes: u64) -> String {
     }
 }
 
+/// Recorta `text` a `width` columnas (con `…`) y lo centra con espacios.
+pub fn fit_center(text: &str, width: usize) -> String {
+    let len = text.chars().count();
+    let shown: String = if len > width {
+        let cut: String = text.chars().take(width.saturating_sub(1)).collect();
+        if width == 0 {
+            String::new()
+        } else {
+            format!("{}…", cut.trim_end())
+        }
+    } else {
+        text.to_string()
+    };
+    let pad = width.saturating_sub(shown.chars().count());
+    format!(
+        "{}{}{}",
+        " ".repeat(pad / 2),
+        shown,
+        " ".repeat(pad - pad / 2)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn centers_and_truncates() {
+        assert_eq!(fit_center("abc", 7), "  abc  ");
+        assert_eq!(fit_center("abcd", 7), " abcd  ");
+        assert_eq!(fit_center("un nombre largo", 8), "un nomb…");
+        assert_eq!(fit_center("ñandú", 5), "ñandú");
+        assert_eq!(fit_center("abc", 0), "");
+    }
 
     #[test]
     fn formats_bytes() {

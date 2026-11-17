@@ -72,3 +72,11 @@ Decisiones y problemas, por iteración.
 - FNV-1a propio: el hasher por defecto de Rust no es estable entre versiones.
 - `IconStore` memoiza también los fallos, para no reintentar un icono roto en cada refresco.
 - Si cambia el algoritmo del pipeline hay que subir `PIPELINE_VERSION` en `icons/cache.rs`.
+
+## Iteración 9 — grilla
+- ratatui 0.30 sin features por defecto (solo `crossterm`). `ui::draw` es la única función de
+  dibujo: la usan la TUI, `--snapshot [--size AxB]` y los tests con `TestBackend` + insta.
+- Baldosa = icono + nombre + "CPU% RAM" (18×10 con icono 16×8). La selección se marca con
+  barras laterales en las columnas de margen: no gasta filas y no pinta fondo.
+- `GridLayout` es puro (ancho → posiciones) y guarda el área dibujada para el mouse.
+- El scroll es por líneas con recorte por línea, así una fila puede verse a medias.
