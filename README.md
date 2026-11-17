@@ -26,34 +26,6 @@ Inside an app: its details, CPU and RAM graphs, and its process tree:
 
 ![apptop detail view of Firefox](docs/screenshots/detail.png)
 
-The detail view as text (80×24), from the snapshot tests:
-
-```text
-apptop  CPU n/a  RAM n/a  Swap n/a                    ⟳ 1s · 3 apps · 2 services
-                          Firefox                           CPU 23.5%   max 100%
-⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  application · app                            ⢸⣿⡇
-⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
-⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  User       ana                               ⢸⣿⡇     ⣀
-⢸                      ⡇  Uptime     2h 03m                            ⢸⣿⣇⣤⣴⣶⣾⣿⣿
-⢸                      ⡇  Processes  3 · 172 threads             ⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G    max 6.6G
-⢸                      ⡇  CPU        23.5%
-⢸                      ⡇  RAM        5.3G  (PSS 1.2G)              ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
-⢸                      ⡇  Disk       R 2.3M/s  W 342K/s          ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠔⠁  GPU        18% gfx · VRAM 512M         ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-                          Net est.   ↓820K/s ↑50.8K/s            ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-
-     PID  PROCESS                                  CPU%     RAM   THR  STATE
-    4100  firefox                                   1.5    900M   120  S asleep
-    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S asleep
-    4222  └─ firefox                               97.2    250M    22  T stopped
-
-
-
-
-
-x close  K kill  p pause  n priority  S signal  Esc back  q quit
-```
 
 Every destructive action asks for confirmation and says what it affects and
 how many processes:
