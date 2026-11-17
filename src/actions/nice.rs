@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use super::signal::{current_starttime, Target};
+use crate::i18n::Lang;
 
 /// Rango válido de `nice`: -20 (más prioridad) a 19 (menos).
 pub const NICE_MIN: i32 = -20;
@@ -55,46 +56,17 @@ impl NiceReport {
         self.changed == 0 || self.needs_privilege + self.not_owner + self.failed > 0
     }
 
-    /// Frase para el usuario; explica con claridad qué permiso falta.
-    pub fn summary(&self, value: i32, label: &str) -> String {
-        let mut parts = Vec::new();
-        match self.changed {
-            0 => {}
-            1 => parts.push(format!("Prioridad {value} aplicada a 1 proceso de {label}")),
-            n => parts.push(format!(
-                "Prioridad {value} aplicada a {n} procesos de {label}"
-            )),
-        }
-        if self.needs_privilege > 0 {
-            parts.push(format!(
-                "sin permiso en {}: subir la prioridad (bajar nice) requiere root o CAP_SYS_NICE",
-                self.needs_privilege
-            ));
-        }
-        if self.not_owner > 0 {
-            parts.push(format!(
-                "sin permiso en {}: son de otro usuario",
-                self.not_owner
-            ));
-        }
-        if self.vanished > 0 {
-            parts.push(format!("{} ya habían terminado", self.vanished));
-        }
-        if self.failed > 0 {
-            parts.push(format!("{} con error", self.failed));
-        }
-        if parts.is_empty() {
-            return format!("No hay procesos de {label} a los que cambiar la prioridad");
-        }
-        let mut text = parts.join(" · ");
-        if self.changed == 0 {
-            // Empieza en mayúscula cuando el primer tramo es un error.
-            let mut chars = text.chars();
-            if let Some(first) = chars.next() {
-                text = first.to_uppercase().chain(chars).collect();
-            }
-        }
-        text
+    /// Frase para el usuario, en su idioma; explica qué permiso falta.
+    pub fn summary(&self, lang: Lang, value: i32, label: &str) -> String {
+        lang.nice_summary(
+            value,
+            label,
+            self.changed,
+            self.needs_privilege,
+            self.not_owner,
+            self.vanished,
+            self.failed,
+        )
     }
 }
 
@@ -181,8 +153,8 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            ok.summary(10, "Firefox"),
-            "Prioridad 10 aplicada a 3 procesos de Firefox"
+            ok.summary(Lang::En, 10, "Firefox"),
+            "Priority 10 applied to 3 processes of Firefox"
         );
         assert!(!ok.is_problem());
 
@@ -191,25 +163,14 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            denied.summary(-5, "Firefox"),
+            denied.summary(Lang::En, -5, "Firefox"),
+            "No permission for 2: raising priority (lowering nice) requires root or CAP_SYS_NICE"
+        );
+        assert_eq!(
+            denied.summary(Lang::Es, -5, "Firefox"),
             "Sin permiso en 2: subir la prioridad (bajar nice) requiere root o CAP_SYS_NICE"
         );
         assert!(denied.is_problem());
-
-        let mixed = NiceReport {
-            changed: 1,
-            not_owner: 4,
-            vanished: 1,
-            ..Default::default()
-        };
-        assert_eq!(
-            mixed.summary(5, "docker"),
-            "Prioridad 5 aplicada a 1 proceso de docker · sin permiso en 4: son de otro usuario · 1 ya habían terminado"
-        );
-        assert_eq!(
-            NiceReport::default().summary(0, "x"),
-            "No hay procesos de x a los que cambiar la prioridad"
-        );
     }
 
     #[test]

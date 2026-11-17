@@ -8,6 +8,8 @@ use nix::errno::Errno;
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
 
+use crate::i18n::Lang;
+
 /// Un proceso al que se le quiere enviar una señal. `starttime` identifica
 /// al proceso concreto: si el pid ya fue reutilizado por otro, no se toca.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,26 +36,16 @@ impl SignalReport {
         self.delivered + self.vanished + self.denied + self.failed
     }
 
-    /// Frase para mostrar al usuario.
-    pub fn summary(&self, signal: Signal, label: &str) -> String {
-        let mut text = match self.delivered {
-            0 => format!(
-                "{} no se envió a ningún proceso de {label}",
-                signal.as_str()
-            ),
-            1 => format!("{} enviada a 1 proceso de {label}", signal.as_str()),
-            n => format!("{} enviada a {n} procesos de {label}", signal.as_str()),
-        };
-        if self.denied > 0 {
-            text.push_str(&format!(" · sin permiso para {}", self.denied));
-        }
-        if self.vanished > 0 {
-            text.push_str(&format!(" · {} ya habían terminado", self.vanished));
-        }
-        if self.failed > 0 {
-            text.push_str(&format!(" · {} con error", self.failed));
-        }
-        text
+    /// Frase para mostrar al usuario, en su idioma.
+    pub fn summary(&self, lang: Lang, signal: Signal, label: &str) -> String {
+        lang.signal_summary(
+            signal,
+            label,
+            self.delivered,
+            self.denied,
+            self.vanished,
+            self.failed,
+        )
     }
 
     /// ¿Hubo algo que el usuario deba notar como problema?
@@ -62,17 +54,18 @@ impl SignalReport {
     }
 }
 
-/// Señales que ofrece el menú, con una descripción corta.
-pub const SIGNAL_MENU: &[(Signal, &str)] = &[
-    (Signal::SIGTERM, "pedir que termine"),
-    (Signal::SIGKILL, "terminar por la fuerza"),
-    (Signal::SIGINT, "interrumpir (como Ctrl+C)"),
-    (Signal::SIGHUP, "colgar / recargar configuración"),
-    (Signal::SIGQUIT, "salir con volcado de memoria"),
-    (Signal::SIGSTOP, "pausar"),
-    (Signal::SIGCONT, "reanudar"),
-    (Signal::SIGUSR1, "definida por el programa (1)"),
-    (Signal::SIGUSR2, "definida por el programa (2)"),
+/// Señales que ofrece el menú, en orden. La descripción de cada una está en
+/// el catálogo de idiomas (`Lang::signal_description`).
+pub const SIGNAL_MENU: &[Signal] = &[
+    Signal::SIGTERM,
+    Signal::SIGKILL,
+    Signal::SIGINT,
+    Signal::SIGHUP,
+    Signal::SIGQUIT,
+    Signal::SIGSTOP,
+    Signal::SIGCONT,
+    Signal::SIGUSR1,
+    Signal::SIGUSR2,
 ];
 
 /// ¿Hay que pedir confirmación antes de enviar esta señal? Pausar y
@@ -245,26 +238,28 @@ mod tests {
     #[test]
     fn menu_lists_distinct_signals_and_only_pause_resume_skip_confirmation() {
         let mut seen = std::collections::HashSet::new();
-        assert!(SIGNAL_MENU
-            .iter()
-            .all(|(s, d)| seen.insert(*s) && !d.is_empty()));
-        assert_eq!(SIGNAL_MENU[0].0, Signal::SIGTERM);
+        assert!(SIGNAL_MENU.iter().all(|s| seen.insert(*s)));
+        assert_eq!(SIGNAL_MENU[0], Signal::SIGTERM);
         let unconfirmed: Vec<Signal> = SIGNAL_MENU
             .iter()
-            .map(|(s, _)| *s)
+            .copied()
             .filter(|s| !needs_confirmation(*s))
             .collect();
         assert_eq!(unconfirmed, vec![Signal::SIGSTOP, Signal::SIGCONT]);
     }
 
     #[test]
-    fn summaries_are_readable() {
+    fn summaries_follow_the_language() {
         let ok = SignalReport {
             delivered: 12,
             ..Default::default()
         };
         assert_eq!(
-            ok.summary(Signal::SIGTERM, "Firefox"),
+            ok.summary(Lang::En, Signal::SIGTERM, "Firefox"),
+            "SIGTERM sent to 12 processes of Firefox"
+        );
+        assert_eq!(
+            ok.summary(Lang::Es, Signal::SIGTERM, "Firefox"),
             "SIGTERM enviada a 12 procesos de Firefox"
         );
         assert!(!ok.is_problem());
@@ -275,16 +270,8 @@ mod tests {
             failed: 0,
         };
         assert_eq!(
-            mixed.summary(Signal::SIGKILL, "x"),
-            "SIGKILL enviada a 1 proceso de x · sin permiso para 3 · 2 ya habían terminado"
-        );
-        let none = SignalReport {
-            denied: 4,
-            ..Default::default()
-        };
-        assert_eq!(
-            none.summary(Signal::SIGTERM, "docker"),
-            "SIGTERM no se envió a ningún proceso de docker · sin permiso para 4"
+            mixed.summary(Lang::En, Signal::SIGKILL, "x"),
+            "SIGKILL sent to 1 process of x · no permission for 3 · 2 had already exited"
         );
         assert_eq!(mixed.total(), 6);
     }

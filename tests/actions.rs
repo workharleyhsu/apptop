@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use apptop::actions::{filter_targets, send_signal, set_nice, Signal, Target};
 use apptop::collect::Collector;
+use apptop::i18n::Lang;
 use common::Sleeper;
 
 const WAIT: Duration = Duration::from_secs(5);
@@ -107,8 +108,8 @@ fn nice_can_be_raised_and_lowering_it_reports_the_missing_privilege() {
     assert_eq!(report.changed, 1, "{report:?}");
     assert_eq!(sleeper.nice(), Some(7));
     assert_eq!(
-        report.summary(7, "sleep"),
-        "Prioridad 7 aplicada a 1 proceso de sleep"
+        report.summary(Lang::En, 7, "sleep"),
+        "Priority 7 applied to 1 process of sleep"
     );
 
     // Volver a 0 es subir la prioridad: sin CAP_SYS_NICE el kernel lo
@@ -121,8 +122,8 @@ fn nice_can_be_raised_and_lowering_it_reports_the_missing_privilege() {
         assert_eq!(sleeper.nice(), Some(7), "no cambió");
         assert!(report.is_problem());
         assert!(report
-            .summary(0, "sleep")
-            .contains("requiere root o CAP_SYS_NICE"));
+            .summary(Lang::En, 0, "sleep")
+            .contains("requires root or CAP_SYS_NICE"));
     }
 }
 

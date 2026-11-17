@@ -2,27 +2,27 @@
 source: src/ui/mod.rs
 expression: text
 ---
-apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servicios
-                          Firefox                           CPU 23.5%  tope 100%
-⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢸⣿⡇
+apptop  CPU n/a  RAM n/a  Swap n/a                    ⟳ 1s · 3 apps · 2 services
+                          Firefox                           CPU 23.5%   max 100%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  application · app                            ⢸⣿⡇
 ⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
-⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  Usuario    ana                               ⢸⣿⡇     ⣀
-⢸                      ⡇  Activa     2h 03m                            ⢸⣿⣇⣤⣴⣶⣾⣿⣿
-⢸             ╭─ Prioridad de la aplicación ─────────────────────╮⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⢸             │ Firefox · 3 procesos afectados                   │3G   tope 6.6G
-⢸             │ Prioridad actual: 0                              │
-⢸             │                                                  │ ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
-⢸             │ Nueva:  -4                                       │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│ ────────────────●───────────────────────         │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-              │ -20 más prioridad               menos 19         │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-              │ Solo se nota cuando la CPU está saturada         │
-     PID  PROC│ Subir la prioridad requiere root o CAP_SYS_NICE  │LOS  ESTADO
-    4100  fire│                                                  │120  S duerme
-    4130  ├─ f│ [←/→] cambiar   [Enter] aplicar   [Esc] cancelar │ 30  S duerme
-    4222  └─ f╰──────────────────────────────────────────────────╯ 22  T pausado
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  User       ana                               ⢸⣿⡇     ⣀
+⢸                      ⡇  Uptime     2h 03m                            ⢸⣿⣇⣤⣴⣶⣾⣿⣿
+⢸              ╭─ Application priority ─────────────────────────╮⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⢸              │ Firefox · 3 processes affected                 │.3G    max 6.6G
+⢸              │ Current priority: 0                            │
+⢸              │                                                │  ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
+⢸              │ New:  -4                                       │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│ ────────────────●───────────────────────       │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+               │ -20 higher priority             lower 19       │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+               │ Only matters when the CPU is saturated         │
+     PID  PROCE│ Raising priority requires root or CAP_SYS_NICE │ THR  STATE
+    4100  firef│                                                │ 120  S asleep
+    4130  ├─ fi│ [←/→] change   [Enter] apply   [Esc] cancel    │  30  S asleep
+    4222  └─ fi╰────────────────────────────────────────────────╯  22  T stopped
 
 
 
 
 
-←/→ cambiar  Enter aplicar  Esc cancelar
+←/→ change  Enter apply  Esc cancel

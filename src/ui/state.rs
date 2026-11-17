@@ -9,6 +9,7 @@ use crate::actions::{
 };
 use crate::apps::{App, AppKind, DetailData, Sample};
 use crate::collect::SystemStats;
+use crate::i18n::Lang;
 use crate::icons::GRID_ICON;
 
 use super::graph::{History, Point};
@@ -56,9 +57,9 @@ impl SortKey {
         }
     }
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self, lang: Lang) -> &'static str {
         match self {
-            SortKey::Name => "nombre",
+            SortKey::Name => lang.t().sort_name,
             SortKey::Cpu => "CPU",
             SortKey::Ram => "RAM",
         }
@@ -93,11 +94,12 @@ impl Sections {
         }
     }
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self, lang: Lang) -> &'static str {
+        let t = lang.t();
         match self {
-            Sections::All => "todo",
-            Sections::Apps => "apps",
-            Sections::Services => "servicios",
+            Sections::All => t.sections_all,
+            Sections::Apps => t.sections_apps,
+            Sections::Services => t.sections_services,
         }
     }
 
@@ -152,14 +154,15 @@ pub struct ActionRequest {
 
 impl ActionRequest {
     /// Título del diálogo de confirmación.
-    pub fn title(&self) -> &'static str {
+    pub fn title(&self, lang: Lang) -> &'static str {
+        let t = lang.t();
         match (self.signal, self.single_process) {
-            (Signal::SIGTERM, false) => "Cerrar aplicación",
-            (Signal::SIGTERM, true) => "Cerrar proceso",
-            (Signal::SIGKILL, false) => "Matar aplicación",
-            (Signal::SIGKILL, true) => "Matar proceso",
-            (_, false) => "Enviar señal a la aplicación",
-            (_, true) => "Enviar señal al proceso",
+            (Signal::SIGTERM, false) => t.title_close_app,
+            (Signal::SIGTERM, true) => t.title_close_process,
+            (Signal::SIGKILL, false) => t.title_kill_app,
+            (Signal::SIGKILL, true) => t.title_kill_process,
+            (_, false) => t.title_signal_app,
+            (_, true) => t.title_signal_process,
         }
     }
 }
@@ -210,6 +213,8 @@ pub struct State {
     /// Segundos transcurridos al tomar la última muestra.
     pub clock: f64,
     started: std::time::Instant,
+    /// Idioma de la interfaz.
+    pub lang: Lang,
     /// Mostrar un aviso en vez de la interfaz si la terminal es menor que
     /// [`MIN_SIZE`].
     pub enforce_min_size: bool,
@@ -255,6 +260,7 @@ impl State {
             detail: None,
             // Los tests dibujan a propósito en lienzos chicos para ejercitar
             // el recorte; el aviso de tamaño mínimo se prueba aparte.
+            lang: Lang::default(),
             enforce_min_size: !cfg!(test),
             lineage: Vec::new(),
             pending: None,
@@ -539,10 +545,7 @@ impl State {
         let (targets, label, single_process) = self.action_scope()?;
         let (targets, excluded) = filter_targets(&targets, signal, &self.lineage);
         if targets.is_empty() {
-            self.notify(
-                "No se puede: afectaría al propio apptop o a su terminal",
-                true,
-            );
+            self.notify(self.lang.t().would_affect_apptop, true);
             return None;
         }
         Some(ActionRequest {
@@ -605,7 +608,7 @@ impl State {
         let Mode::SignalMenu(cursor) = std::mem::take(&mut self.mode) else {
             return;
         };
-        let Some((signal, _)) = SIGNAL_MENU.get(cursor) else {
+        let Some(signal) = SIGNAL_MENU.get(cursor) else {
             return;
         };
         if needs_confirmation(*signal) {
@@ -661,7 +664,7 @@ impl State {
             if apply {
                 self.pending_nice = Some(request);
             } else {
-                self.notify("Cancelado", false);
+                self.notify(self.lang.t().cancelled, false);
             }
         }
     }
@@ -679,7 +682,7 @@ impl State {
             if yes {
                 self.pending = Some(request);
             } else {
-                self.notify("Cancelado", false);
+                self.notify(self.lang.t().cancelled, false);
             }
         }
     }
@@ -996,7 +999,7 @@ pub(crate) mod tests {
         let Mode::Confirm(request) = s.mode.clone() else {
             panic!("debe pedir confirmación");
         };
-        assert_eq!(request.title(), "Cerrar aplicación");
+        assert_eq!(request.title(Lang::En), "Close application");
         assert_eq!(
             (request.label.as_str(), request.targets.len()),
             ("Editor", 3)
@@ -1005,7 +1008,7 @@ pub(crate) mod tests {
 
         s.answer_confirm(false);
         assert!(s.pending.is_none() && s.mode == Mode::Normal);
-        assert_eq!(s.current_message().unwrap().text, "Cancelado");
+        assert_eq!(s.current_message().unwrap().text, "Cancelled");
 
         s.ask_signal(Signal::SIGKILL);
         s.answer_confirm(true);
@@ -1044,7 +1047,8 @@ pub(crate) mod tests {
         let Mode::Confirm(request) = &s.mode else {
             panic!()
         };
-        assert_eq!(request.title(), "Matar proceso");
+        assert_eq!(request.title(Lang::En), "Kill process");
+        assert_eq!(request.title(Lang::Es), "Matar proceso");
     }
 
     #[test]
@@ -1190,8 +1194,8 @@ pub(crate) mod tests {
             panic!("debe pedir confirmación");
         };
         assert_eq!(
-            (request.signal, request.title()),
-            (Signal::SIGINT, "Enviar señal a la aplicación")
+            (request.signal, request.title(Lang::En)),
+            (Signal::SIGINT, "Send signal to application")
         );
         s.answer_confirm(true);
         assert_eq!(s.pending.take().unwrap().signal, Signal::SIGINT);
@@ -1240,7 +1244,7 @@ pub(crate) mod tests {
         assert!(
             matches!(&s.mode, Mode::Confirm(r) if r.signal == Signal::SIGKILL && r.targets == only)
         );
-        assert!(matches!(&s.mode, Mode::Confirm(r) if r.title() == "Matar proceso"));
+        assert!(matches!(&s.mode, Mode::Confirm(r) if r.title(Lang::En) == "Kill process"));
         s.answer_confirm(false);
 
         // Volver a "toda la app": el alcance vuelve a ser los tres procesos.

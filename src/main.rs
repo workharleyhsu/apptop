@@ -8,64 +8,72 @@ use clap::Parser;
 
 use apptop::apps::{group_apps_with, AppKind, DesktopIndex, Sample, Sampler};
 use apptop::collect::Collector;
-use apptop::config::Config;
+use apptop::config::{Config, Warning};
+use apptop::i18n::Lang;
 use apptop::icons::{BrailleIcon, GenericKind, IconLocator, DETAIL_ICON};
 use apptop::ui::format::human_bytes;
 use apptop::ui::state::clamp_refresh;
 use apptop::ui::{render_to_text, RunOptions};
 
-/// Monitor de recursos para terminal centrado en aplicaciones.
+// Los textos de ayuda van solo en inglés: clap los toma en tiempo de
+// compilación, y es lo primero que lee quien todavía no configuró nada.
+
+/// App-centric resource monitor for the terminal.
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Cli {
-    /// Imprime las apps detectadas, sus PIDs y recursos en texto plano.
+    /// Print the detected apps, their PIDs and resource usage as plain text.
     #[arg(long)]
     list: bool,
 
-    /// Imprime el icono de una app convertido a braille. Acepta el nombre de
-    /// una app, el id de un `.desktop`, un nombre de icono, una ruta, o
-    /// `generic:service` / `generic:app` para los iconos genéricos.
+    /// Print an app's icon converted to braille. Accepts an app name, a
+    /// `.desktop` id, an icon name, a file path, or `generic:service` /
+    /// `generic:app` for the generic icons.
     #[arg(long, value_name = "APP")]
     dump_icon: Option<String>,
 
-    /// Con `--dump-icon`: usa el tamaño grande de la vista de detalle.
+    /// With `--dump-icon`: use the large size of the detail view.
     #[arg(long)]
     large: bool,
 
-    /// Fuerza la salida con color (`always`), sin color (`never`) o según
-    /// la terminal (`auto`).
-    #[arg(long, value_name = "MODO", default_value = "auto")]
+    /// Force coloured output (`always`), plain output (`never`) or decide
+    /// from the terminal (`auto`).
+    #[arg(long, value_name = "MODE", default_value = "auto")]
     color: String,
 
-    /// Segundos entre refrescos (0.25 a 10).
-    #[arg(long, short = 'r', value_name = "SEGUNDOS")]
+    /// Seconds between refreshes (0.25 to 10).
+    #[arg(long, short = 'r', value_name = "SECONDS")]
     refresh: Option<f64>,
 
-    /// Archivo de configuración (por defecto ~/.config/apptop/config.toml).
-    #[arg(long, value_name = "ARCHIVO")]
+    /// Interface language: `en` (default) or `es`.
+    #[arg(long, value_name = "LANG")]
+    lang: Option<String>,
+
+    /// Configuration file (default: ~/.config/apptop/config.toml).
+    #[arg(long, value_name = "FILE")]
     config: Option<PathBuf>,
 
-    /// Imprime la configuración efectiva en formato TOML y termina.
+    /// Print the effective configuration as TOML and exit.
     #[arg(long)]
     print_config: bool,
 
-    /// Renderiza un cuadro de la interfaz a texto y termina.
+    /// Render one frame of the interface as text and exit.
     #[arg(long)]
     snapshot: bool,
 
-    /// Con `--snapshot`: muestra el detalle de esta app en vez de la grilla.
-    #[arg(long, value_name = "NOMBRE")]
+    /// With `--snapshot`: show this app's detail view instead of the grid.
+    #[arg(long, value_name = "NAME")]
     app: Option<String>,
 
-    /// Con `--snapshot`: tamaño del cuadro, por ejemplo `120x40`.
-    #[arg(long, value_name = "ANCHOxALTO", default_value = "100x30")]
+    /// With `--snapshot`: frame size, for example `120x40`.
+    #[arg(long, value_name = "WIDTHxHEIGHT", default_value = "100x30")]
     size: String,
 
-    /// Provoca un panic tras el primer cuadro (prueba de restauración).
+    /// Panic after the first frame (terminal restoration test).
     #[arg(long, hide = true)]
     panic_test: bool,
 
-    /// Imprime todos los procesos leídos (depuración).
+    /// Print every process that was read (debugging).
     #[arg(long)]
     list_procs: bool,
 }
@@ -75,9 +83,23 @@ fn main() {
 
     // Configuración: archivo (opcional) y encima las opciones de la línea
     // de comandos. Las advertencias no impiden arrancar.
-    let (mut config, warnings) = Config::load(cli.config.as_deref());
-    for warning in &warnings {
-        eprintln!("apptop: {warning}");
+    let loaded = Config::load(cli.config.as_deref());
+    let mut config = loaded.config.clone();
+    let mut bad_lang = None;
+    if let Some(text) = &cli.lang {
+        match Lang::parse(text) {
+            Some(lang) => config.language = lang,
+            None => bad_lang = Some(text.clone()),
+        }
+    }
+    // Recién ahora se sabe en qué idioma mostrar las advertencias.
+    let lang = config.language;
+    for message in loaded.messages(lang) {
+        eprintln!("apptop: {message}");
+    }
+    if let Some(text) = bad_lang {
+        let warning = Warning::Expected("--lang".into(), text, "en, es");
+        eprintln!("apptop: {}", warning.text(lang));
     }
     if let Some(seconds) = cli.refresh.filter(|s| s.is_finite() && *s > 0.0) {
         config.refresh = clamp_refresh(Duration::from_secs_f64(seconds.min(3600.0)));
@@ -113,11 +135,11 @@ fn main() {
         return;
     }
     if cli.list_procs {
-        list_procs();
+        list_procs(lang);
         return;
     }
     if !std::io::stdout().is_terminal() {
-        eprintln!("apptop: la salida no es una terminal; usá --list, --snapshot o --dump-icon");
+        eprintln!("apptop: {}", lang.t().not_a_terminal);
         std::process::exit(2);
     }
     if let Err(err) = apptop::ui::run(&options) {
@@ -126,20 +148,26 @@ fn main() {
     }
 }
 
-fn list_procs() {
+fn list_procs(lang: Lang) {
     let mut collector = Collector::new();
     collector.sample();
     sleep(Duration::from_millis(250));
     println!(
         "{:>8} {:>8} {:1} {:>6} {:>10} {:>4} {:<16} EXE",
-        "PID", "PPID", "S", "CPU%", "RSS(kB)", "THR", "NOMBRE"
+        "PID",
+        "PPID",
+        "S",
+        "CPU%",
+        "RSS(kB)",
+        "THR",
+        lang.t().list_name
     );
     for p in collector.sample() {
         let exe = p
             .exe
             .as_ref()
             .map(|e| e.display().to_string())
-            .unwrap_or_else(|| "n/d".into());
+            .unwrap_or_else(|| lang.t().na.into());
         println!(
             "{:>8} {:>8} {:1} {:>6.1} {:>10} {:>4} {:<16} {}",
             p.pid,
@@ -158,23 +186,25 @@ fn list_apps(options: &RunOptions) {
     let apps = sample_once().apps;
     let store = options.new_store();
     let locator = store.locator();
-    println!("Tema de iconos: {}\n", locator.theme());
+    let lang = options.lang;
+    let t = lang.t();
+    println!("{}: {}\n", t.list_icon_theme, locator.theme());
     for (kind, title) in [
-        (AppKind::App, "APLICACIONES"),
-        (AppKind::Service, "SERVICIOS"),
+        (AppKind::App, t.list_applications),
+        (AppKind::Service, t.list_services),
     ] {
         let section: Vec<_> = apps.iter().filter(|a| a.kind == kind).collect();
         println!("== {title} ({}) ==", section.len());
         println!(
-            "{:<28} {:<13} {:>5} {:>6} {:>9}  PIDS / ICONO",
-            "NOMBRE", "TIPO", "PROCS", "CPU%", "RAM"
+            "{:<28} {:<13} {:>5} {:>6} {:>9}  PIDS",
+            t.list_name, t.list_type, "PROCS", "CPU%", "RAM"
         );
         for app in section {
             let pids: Vec<String> = app.procs.iter().map(|p| p.pid.to_string()).collect();
             println!(
                 "{:<28} {:<13} {:>5} {:>6.1} {:>9}  {}",
                 truncate(&app.name, 28),
-                app.origin.label(),
+                app.origin.label(lang),
                 app.procs.len(),
                 app.cpu_pct,
                 human_bytes(app.rss),
@@ -184,8 +214,8 @@ fn list_apps(options: &RunOptions) {
                 let path = locator
                     .locate(icon)
                     .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "n/d".into());
-                println!("{:<28} icono: {icon} -> {path}", "");
+                    .unwrap_or_else(|| t.na.into());
+                println!("{:<28} {}: {icon} -> {path}", "", t.list_icon);
             }
         }
         println!();
@@ -230,18 +260,19 @@ fn dump_icon(target: &str, size: (u16, u16), color: &str, options: &RunOptions) 
         store.generic(kind, size.0, size.1)
     } else {
         let Some(path) = resolve_icon(target, store.locator()) else {
-            eprintln!("apptop: no se encontró un icono para '{target}'");
+            eprintln!("apptop: {}", options.lang.no_icon_for(target));
             return 1;
         };
         let Some(icon) = store.file(&path, size.0, size.1) else {
-            eprintln!("apptop: no se pudo convertir {}", path.display());
+            let path = path.display().to_string();
+            eprintln!("apptop: {}", options.lang.cannot_convert(&path));
             return 1;
         };
         let (r, g, b) = icon.color;
         let source = if store.conversions == 0 {
-            "caché"
+            options.lang.t().icon_cached
         } else {
-            "convertido"
+            options.lang.t().icon_converted
         };
         eprintln!(
             "{}  color #{r:02x}{g:02x}{b:02x}  ({source})",
@@ -298,7 +329,7 @@ fn snapshot(
                     .find(|a| a.name.to_lowercase().contains(&lower))
             })
             .map(|a| a.id.clone())
-            .ok_or_else(|| format!("no hay ninguna app en ejecución llamada '{wanted}'"))?;
+            .ok_or_else(|| options.lang.no_app_named(wanted))?;
         state.selected = Some(found);
         state.enter_detail();
         // Dos muestras más con detalle: la primera fija las referencias de

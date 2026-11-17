@@ -2,27 +2,27 @@
 source: src/ui/mod.rs
 expression: text
 ---
-apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servicios
-                          Firefox                           CPU 23.5%  tope 100%
-⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢸⣿⡇
+apptop  CPU n/a  RAM n/a  Swap n/a                    ⟳ 1s · 3 apps · 2 services
+                          Firefox                           CPU 23.5%   max 100%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  application · app                            ⢸⣿⡇
 ⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
-⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀╭─ Enviar señal ─────────────────────────────────╮      ⢸⣿⡇     ⣀
-⢸              │ firefox (pid 4130) · 1 proceso afectado        │      ⢸⣿⣇⣤⣴⣶⣾⣿⣿
-⢸              │                                                │⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⢸              │   SIGTERM  pedir que termine                   │.3G   tope 6.6G
-⢸              │   SIGKILL  terminar por la fuerza              │
-⢸              │   SIGINT   interrumpir (como Ctrl+C)           │  ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
-⢸              │ ▶ SIGHUP   colgar / recargar configuración     │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│   SIGQUIT  salir con volcado de memoria        │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-               │   SIGSTOP  pausar                              │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-               │   SIGCONT  reanudar                            │
-     PID  PROCE│   SIGUSR1  definida por el programa (1)        │ILOS  ESTADO
-    4100  firef│   SIGUSR2  definida por el programa (2)        │ 120  S duerme
-▶   4130  ├─ fi│                                                │  30  S duerme
-    4222  └─ fi│ [↑/↓] elegir   [Enter] enviar   [Esc] cancelar │  22  T pausado
-               ╰────────────────────────────────────────────────╯
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀╭─ Send signal ──────────────────────────────╮        ⢸⣿⡇     ⣀
+⢸                │ firefox (pid 4130) · 1 process affected    │        ⢸⣿⣇⣤⣴⣶⣾⣿⣿
+⢸                │                                            │  ⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⢸                │   SIGTERM  ask it to terminate             │ 5.3G    max 6.6G
+⢸                │   SIGKILL  terminate by force              │
+⢸                │   SIGINT   interrupt (like Ctrl+C)         │    ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
+⢸                │ ▶ SIGHUP   hang up / reload configuration  │  ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│   SIGQUIT  quit with a core dump           │  ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+                 │   SIGSTOP  pause                           │  ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+                 │   SIGCONT  resume                          │
+     PID  PROCESS│   SIGUSR1  defined by the program (1)      │   THR  STATE
+    4100  firefox│   SIGUSR2  defined by the program (2)      │   120  S asleep
+▶   4130  ├─ fire│                                            │    30  S asleep
+    4222  └─ fire│ [↑/↓] choose   [Enter] send   [Esc] cancel │    22  T stopped
+                 ╰────────────────────────────────────────────╯
 
 
 
 
-↑/↓ elegir  Enter enviar  Esc cancelar
+↑/↓ choose  Enter send  Esc cancel

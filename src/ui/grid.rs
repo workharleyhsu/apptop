@@ -5,6 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 
 use crate::apps::{App, AppKind};
+use crate::i18n::Lang;
 use crate::icons::{BrailleIcon, GenericKind, IconStore};
 
 use super::format::{fit_center, human_bytes};
@@ -129,10 +130,10 @@ fn put(buf: &mut Buffer, area: Rect, scroll: u16, x: u16, vy: u16, text: &str, s
     buf.set_stringn(area.x + x, area.y + vy - scroll, text, width, style);
 }
 
-fn section_title(kind: AppKind) -> &'static str {
+fn section_title(kind: AppKind, lang: Lang) -> &'static str {
     match kind {
-        AppKind::App => "Aplicaciones",
-        AppKind::Service => "Servicios",
+        AppKind::App => lang.t().applications,
+        AppKind::Service => lang.t().services,
     }
 }
 
@@ -190,9 +191,9 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
 
     if layout.tiles.is_empty() {
         let message = if state.filter.is_empty() {
-            "No hay aplicaciones para mostrar"
+            state.lang.t().no_apps
         } else {
-            "Ninguna app coincide con el filtro"
+            state.lang.t().no_match
         };
         let x = area.width.saturating_sub(message.chars().count() as u16) / 2;
         put(buf, area, 0, x, area.height / 2, message, theme.dim());
@@ -201,7 +202,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
     }
 
     for (y, kind, count) in &layout.headers {
-        let title = format!("── {} ({count}) ", section_title(*kind));
+        let title = format!("── {} ({count}) ", section_title(*kind, state.lang));
         let rule = "─".repeat((area.width as usize).saturating_sub(title.chars().count()));
         put(
             buf,
@@ -257,7 +258,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
 
         // Una app pausada no consume CPU: se avisa en lugar del resumen.
         if app_is_paused(app) {
-            let label = fit_center("‖ pausada", icon_w as usize);
+            let label = fit_center(state.lang.t().paused, icon_w as usize);
             let style = Style::default().fg(theme.load(50.0));
             let y = tile.y + icon_h + 1;
             put(buf, area, scroll, tile.x + SIDE_PAD, y, &label, style);

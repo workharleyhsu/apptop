@@ -8,6 +8,7 @@ use ratatui::style::{Modifier, Style};
 
 use crate::apps::App;
 use crate::collect::ProcInfo;
+use crate::i18n::Lang;
 
 use super::bars::write_spans;
 use super::format::human_bytes;
@@ -91,17 +92,18 @@ pub fn tree_rows(app: &App) -> Vec<TreeRow> {
 }
 
 /// Descripción corta de la letra de estado del kernel.
-pub fn state_label(state: char) -> &'static str {
+pub fn state_label(state: char, lang: Lang) -> &'static str {
+    let t = lang.t();
     match state {
-        'R' => "R activo",
-        'S' => "S duerme",
-        'D' => "D en E/S",
-        'I' => "I ocioso",
-        'T' => "T pausado",
-        't' => "t trazado",
-        'Z' => "Z zombi",
-        'X' | 'x' => "X muerto",
-        _ => "? n/d",
+        'R' => t.state_running,
+        'S' => t.state_sleeping,
+        'D' => t.state_io,
+        'I' => t.state_idle,
+        'T' => t.state_stopped,
+        't' => t.state_traced,
+        'Z' => t.state_zombie,
+        'X' | 'x' => t.state_dead,
+        _ => t.state_unknown,
     }
 }
 
@@ -157,12 +159,14 @@ pub fn draw(buf: &mut Buffer, area: Rect, app: &App, state: &mut State) {
         return;
     }
     let theme = state.theme;
+    let lang = state.lang;
+    let t = lang.t();
     let width = area.width as usize;
     let name_width = width.saturating_sub(PID_WIDTH + 2 + RIGHT_WIDTH).max(8);
 
     let header = format!(
         "{:>PID_WIDTH$}  {:<name_width$}{:>7}{:>8}{:>6}  {:<9}",
-        "PID", "PROCESO", "CPU%", "RAM", "HILOS", "ESTADO"
+        "PID", t.col_process, "CPU%", "RAM", t.col_threads, t.col_state
     );
     buf.set_stringn(area.x, area.y, header, width, theme.header());
 
@@ -230,7 +234,10 @@ pub fn draw(buf: &mut Buffer, area: Rect, app: &App, state: &mut State) {
             ),
             (format!("{:>8}", human_bytes(proc.rss)), base),
             (format!("{:>6}", proc.threads), base),
-            (format!("  {:<9}", state_label(proc.state)), state_style),
+            (
+                format!("  {:<9}", state_label(proc.state, lang)),
+                state_style,
+            ),
         ];
         write_spans(
             buf,
@@ -328,8 +335,9 @@ mod tests {
 
     #[test]
     fn labels_states() {
-        assert_eq!(state_label('T'), "T pausado");
-        assert_eq!(state_label('Z'), "Z zombi");
-        assert_eq!(state_label('q'), "? n/d");
+        assert_eq!(state_label('T', Lang::En), "T stopped");
+        assert_eq!(state_label('T', Lang::Es), "T pausado");
+        assert_eq!(state_label('Z', Lang::En), "Z zombie");
+        assert_eq!(state_label('q', Lang::Es), "? n/d");
     }
 }

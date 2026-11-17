@@ -73,22 +73,14 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
 
 /// Aviso que reemplaza a la interfaz cuando la terminal es demasiado chica.
 fn draw_too_small(buf: &mut ratatui::buffer::Buffer, area: Rect, state: &State) {
+    let lang = state.lang;
     let lines = [
+        (lang.t().too_small.to_string(), state.theme.selected()),
         (
-            "Terminal demasiado chica".to_string(),
-            state.theme.selected(),
-        ),
-        (
-            format!(
-                "{}x{} — mínimo {}x{}",
-                area.width, area.height, MIN_SIZE.0, MIN_SIZE.1
-            ),
+            lang.size_notice((area.width, area.height), MIN_SIZE),
             state.theme.text(),
         ),
-        (
-            "Agrandá la ventana (q para salir)".to_string(),
-            state.theme.dim(),
-        ),
+        (lang.t().too_small_hint.to_string(), state.theme.dim()),
     ];
     let top = area.y + area.height.saturating_sub(lines.len() as u16) / 2;
     for (i, (text, style)) in lines.iter().enumerate() {
@@ -169,16 +161,16 @@ mod tests {
         let text = render_to_text(60, 14, &mut state, &mut test_store());
         let filter_line = |text: &str| text.lines().rev().nth(1).map(str::to_string);
         assert_eq!(filter_line(&text).as_deref(), Some("/fi▏"));
-        assert!(text.lines().last().unwrap().starts_with("Enter aplicar"));
+        assert!(text.lines().last().unwrap().starts_with("Enter apply"));
         assert!(text.contains("Firefox") && !text.contains("Alacritty"));
         state.accept_filter();
         let text = render_to_text(60, 14, &mut state, &mut test_store());
         assert_eq!(filter_line(&text).as_deref(), Some("/fi"));
-        assert!(text.lines().last().unwrap().contains("Esc quitar filtro"));
+        assert!(text.lines().last().unwrap().contains("Esc clear filter"));
         state.filter = "zzz".into();
         state.reorder();
         let text = render_to_text(60, 14, &mut state, &mut test_store());
-        assert!(text.contains("Ninguna app coincide"));
+        assert!(text.contains("No app matches"));
     }
 
     #[test]
@@ -190,14 +182,14 @@ mod tests {
         apps[2].procs.iter_mut().for_each(|p| p.state = 'T');
         state.set_apps(apps);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
-        assert_eq!(text.matches("‖ pausada").count(), 1, "{text}");
+        assert_eq!(text.matches("‖ paused").count(), 1, "{text}");
         assert!(
-            text.contains("p reanudar"),
+            text.contains("p resume"),
             "Alacritty (pausada) es la seleccionada"
         );
         state.selected = Some("App:Firefox".into());
         let text = render_to_text(80, 24, &mut state, &mut test_store());
-        assert!(text.contains("p pausar"));
+        assert!(text.contains("p pause"));
     }
 
     #[test]
@@ -222,13 +214,13 @@ mod tests {
         let mut store = test_store();
         for (w, h) in [(79, 24), (80, 23), (40, 10)] {
             let text = render_to_text(w, h, &mut state, &mut store);
-            assert!(text.contains("Terminal demasiado chica"), "{w}x{h}\n{text}");
-            assert!(text.contains(&format!("{w}x{h} — mínimo 80x24")), "{text}");
-            assert!(!text.contains("PROCESO"), "no se dibuja la interfaz debajo");
+            assert!(text.contains("Terminal too small"), "{w}x{h}\n{text}");
+            assert!(text.contains(&format!("{w}x{h} — minimum 80x24")), "{text}");
+            assert!(!text.contains("PROCESS"), "no se dibuja la interfaz debajo");
         }
         // Justo en el mínimo, y al volver a agrandar, la interfaz normal.
         let text = render_to_text(80, 24, &mut state, &mut store);
-        assert!(!text.contains("demasiado chica") && text.contains("PROCESO"));
+        assert!(!text.contains("too small") && text.contains("PROCESS"));
         // Tamaños absurdos tampoco rompen el aviso.
         for (w, h) in [(0, 0), (1, 1), (5, 2), (200, 3)] {
             let _ = render_to_text(w, h, &mut state, &mut store);
@@ -281,11 +273,11 @@ mod tests {
         let text = render_to_text(100, 20, &mut state, &mut test_store());
         let top = text.lines().next().unwrap();
         assert!(
-            top.starts_with("apptop  CPU n/d  RAM n/d  Swap n/d"),
+            top.starts_with("apptop  CPU n/a  RAM n/a  Swap n/a"),
             "{top}"
         );
-        assert!(top.ends_with("3 apps · 2 servicios"), "{top}");
-        assert!(text.lines().last().unwrap().contains("q salir"));
+        assert!(top.ends_with("3 apps · 2 services"), "{top}");
+        assert!(text.lines().last().unwrap().contains("q quit"));
 
         state.system.cpu_pct = Some(250.0);
         state.system.mem = Some((8 << 30, 2 << 30));
@@ -294,7 +286,7 @@ mod tests {
         let top = text.lines().next().unwrap();
         assert!(top.contains("CPU ━━━━━━━━━━ 250%"), "{top}");
         assert!(
-            top.contains("2.0G/8.0G") && top.contains("sin swap"),
+            top.contains("2.0G/8.0G") && top.contains("no swap"),
             "{top}"
         );
     }
@@ -384,7 +376,7 @@ mod tests {
         state.move_proc_cursor(2);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         assert!(text.contains("▶   4130  ├─ firefox -contentproc"), "{text}");
-        assert!(text.contains("T pausado"), "{text}");
+        assert!(text.contains("T stopped"), "{text}");
         // Con poco alto el árbol se desplaza para mostrar la fila elegida.
         state.move_proc_cursor(1);
         let text = render_to_text(80, 18, &mut state, &mut test_store());
@@ -416,9 +408,9 @@ mod tests {
         state.ask_signal(crate::actions::Signal::SIGTERM);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         insta::assert_snapshot!(text);
-        assert!(text.contains("¿Enviar SIGTERM a Firefox?"));
-        assert!(text.contains("2 procesos afectados"));
-        assert!(text.contains("[s] sí     [n] no"));
+        assert!(text.contains("Send SIGTERM to Firefox?"));
+        assert!(text.contains("2 processes affected"));
+        assert!(text.contains("[y] yes     [n] no"));
     }
 
     #[test]
@@ -428,22 +420,25 @@ mod tests {
         state.nice_adjust(-4);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         insta::assert_snapshot!(text);
-        assert!(text.contains("Nueva:  -4"));
-        assert!(text.contains("requiere root o CAP_SYS_NICE"));
+        assert!(text.contains("New:  -4"));
+        assert!(text.contains("requires root or CAP_SYS_NICE"));
         state.nice_adjust(9);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
-        assert!(text.contains("Nueva:   5") && !text.contains("requiere root"));
+        assert!(text.contains("New:   5") && !text.contains("requires root"));
         // Al bajar la prioridad se avisa que no hay vuelta atrás sin root.
         assert!(
-            text.contains("Sin root no se puede volver a un valor menor"),
+            text.contains("Without root you cannot go back to a lower value"),
             "{text}"
         );
-        assert!(text.contains("hay que reiniciar la app"), "{text}");
+        assert!(
+            text.contains("restart the app to regain its priority"),
+            "{text}"
+        );
         // Sin cambio respecto del valor actual: ninguna advertencia.
         state.nice_adjust(-5);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
-        assert!(text.contains("Nueva:   0") && text.contains("Solo se nota cuando la CPU"));
-        assert!(!text.contains("Sin root") && !text.contains("requiere root"));
+        assert!(text.contains("New:   0") && text.contains("Only matters when the CPU"));
+        assert!(!text.contains("Without root") && !text.contains("requires root"));
     }
 
     #[test]
@@ -454,7 +449,7 @@ mod tests {
         state.signal_menu_move(3);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
         insta::assert_snapshot!(text);
-        assert!(text.contains("firefox (pid 4130) · 1 proceso afectado"));
+        assert!(text.contains("firefox (pid 4130) · 1 process affected"));
         assert!(text.contains("▶ SIGHUP"));
         assert!(text.contains("  SIGUSR2"));
     }
@@ -470,7 +465,7 @@ mod tests {
         );
         state.clock += 60.0;
         let text = render_to_text(80, 24, &mut state, &mut test_store());
-        assert!(text.lines().last().unwrap().contains("Esc volver"));
+        assert!(text.lines().last().unwrap().contains("Esc back"));
     }
 
     #[test]
@@ -480,16 +475,16 @@ mod tests {
         state.system.uptime = None;
         state.apps[1].procs.iter_mut().for_each(|p| p.uid = None);
         let text = render_to_text(80, 24, &mut state, &mut test_store());
-        assert!(text.contains("PSS n/d"), "{text}");
+        assert!(text.contains("PSS n/a"), "{text}");
         assert!(
-            text.contains("Usuario    n/d") && text.contains("Activa     n/d"),
+            text.contains("User       n/a") && text.contains("Uptime     n/a"),
             "{text}"
         );
 
         // La app muere mientras se mira su detalle.
         state.apps.retain(|a| a.name != "Firefox");
         let text = render_to_text(80, 24, &mut state, &mut test_store());
-        assert!(text.contains("ya no está en ejecución"));
+        assert!(text.contains("no longer running"));
         for (w, h) in [(1, 1), (20, 4), (30, 30)] {
             let _ = render_to_text(w, h, &mut detail_state(), &mut test_store());
         }
@@ -499,7 +494,7 @@ mod tests {
     fn empty_state_shows_a_message_and_tiny_sizes_do_not_panic() {
         let mut state = State::new(Theme::default());
         let text = render_to_text(60, 10, &mut state, &mut test_store());
-        assert!(text.contains("No hay aplicaciones"));
+        assert!(text.contains("No applications"));
         state.set_apps(state::tests::sample_apps());
         for (w, h) in [(1, 1), (3, 2), (17, 5), (200, 3)] {
             let _ = render_to_text(w, h, &mut state, &mut test_store());
@@ -518,5 +513,72 @@ mod tests {
             .content
             .iter()
             .all(|c| c.bg == ratatui::style::Color::Reset));
+    }
+
+    /// El español no es el idioma por defecto: estos snapshots evitan que se
+    /// rompa sin que nadie lo note.
+    #[test]
+    fn spanish_grid_snapshot() {
+        let mut state = State::new(Theme::default());
+        state.lang = crate::i18n::Lang::Es;
+        state.set_apps(state::tests::sample_apps());
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        insta::assert_snapshot!(text);
+        assert!(text.contains("── Aplicaciones (3)") && text.contains("── Servicios (2)"));
+        assert!(text.contains("n/d") && text.contains("q salir"));
+    }
+
+    #[test]
+    fn spanish_detail_and_dialogs_snapshot() {
+        let mut state = detail_state();
+        state.lang = crate::i18n::Lang::Es;
+        let mut store = test_store();
+        let text = render_to_text(80, 24, &mut state, &mut store);
+        insta::assert_snapshot!("spanish_detail", text);
+        for expected in [
+            "Usuario    ana",
+            "Activa     2h 03m",
+            "Red aprox.",
+            "PROCESO",
+            "T pausado",
+        ] {
+            assert!(text.contains(expected), "{expected}\n{text}");
+        }
+
+        state.ask_signal(crate::actions::Signal::SIGTERM);
+        let text = render_to_text(80, 24, &mut state, &mut store);
+        insta::assert_snapshot!("spanish_confirm", text);
+        assert!(text.contains("¿Enviar SIGTERM a Firefox?") && text.contains("[s] sí     [n] no"));
+        state.answer_confirm(false);
+        assert_eq!(state.current_message().unwrap().text, "Cancelado");
+
+        state.ask_nice();
+        state.nice_adjust(3);
+        let text = render_to_text(80, 24, &mut state, &mut store);
+        assert!(text.contains("Nueva:   3") && text.contains("hay que reiniciar la app"));
+        state.nice_finish(false);
+
+        state.open_signal_menu();
+        let text = render_to_text(80, 24, &mut state, &mut store);
+        assert!(text.contains("Enviar señal") && text.contains("pedir que termine"));
+    }
+
+    /// Mismo estado en los dos idiomas: las columnas del detalle quedan en
+    /// la misma posición, cambian solo las palabras.
+    #[test]
+    fn both_languages_share_the_same_layout() {
+        let mut store = test_store();
+        let mut column_of = |lang, needle: &str| -> Option<usize> {
+            let mut state = detail_state();
+            state.lang = lang;
+            let text = render_to_text(100, 30, &mut state, &mut store);
+            text.lines()
+                .find_map(|l| l.find(needle).map(|i| l[..i].chars().count()))
+        };
+        use crate::i18n::Lang::{En, Es};
+        assert_eq!(column_of(En, "ana"), column_of(Es, "ana"));
+        assert_eq!(column_of(En, "2h 03m"), column_of(Es, "2h 03m"));
+        assert_eq!(column_of(En, "CPU%"), column_of(Es, "CPU%"));
+        assert_eq!(column_of(En, "S asleep"), column_of(Es, "S duerme"));
     }
 }

@@ -6,6 +6,7 @@ use ratatui::style::{Modifier, Style};
 
 use crate::apps::{App, AppKind};
 use crate::collect::{GpuReading, GpuStats, IoReading, NetReading};
+use crate::i18n::Lang;
 use crate::icons::{IconStore, DETAIL_ICON};
 
 use super::bars::write_spans;
@@ -49,7 +50,7 @@ pub fn app_uptime(app: &App, system_uptime: Option<f64>, ticks_per_second: f64) 
 }
 
 /// Lista de PIDs que entra en `width` columnas, con `+N` si sobran.
-pub fn pid_list(pids: &[i32], width: usize) -> String {
+pub fn pid_list(lang: Lang, pids: &[i32], width: usize) -> String {
     let mut out = String::new();
     for (i, pid) in pids.iter().enumerate() {
         let piece = if i == 0 {
@@ -66,7 +67,7 @@ pub fn pid_list(pids: &[i32], width: usize) -> String {
         };
         if out.len() + piece.len() + reserve > width {
             return if out.is_empty() {
-                format!("{} en total", pids.len())
+                lang.pids_total(pids.len())
             } else {
                 format!("{out} +{}", rest + 1)
             };
@@ -82,29 +83,33 @@ fn owners(app: &App, state: &mut State) -> String {
     uids.sort_unstable();
     uids.dedup();
     if uids.is_empty() {
-        return "n/d".to_string();
+        return state.lang.t().na.to_string();
     }
     let names: Vec<String> = uids.into_iter().map(|uid| state.user_name(uid)).collect();
     names.join(", ")
 }
 
-/// Texto de la fila de disco: `L` = lectura, `E` = escritura.
-fn disk_text(reading: Option<IoReading>) -> String {
+/// Texto de la fila de disco: lectura y escritura por segundo.
+fn disk_text(lang: Lang, reading: Option<IoReading>) -> String {
+    let t = lang.t();
     match reading {
         Some(IoReading::Rate(rate)) => {
             format!(
-                "L {}  E {}",
+                "{} {}  {} {}",
+                t.disk_read,
                 human_rate(rate.read_bps),
+                t.disk_write,
                 human_rate(rate.write_bps)
             )
         }
-        Some(IoReading::Unavailable) => "n/d (sin permiso)".to_string(),
-        Some(IoReading::Warming) | None => "midiendo…".to_string(),
+        Some(IoReading::Unavailable) => t.no_permission.to_string(),
+        Some(IoReading::Warming) | None => t.measuring.to_string(),
     }
 }
 
 /// Texto de la fila de GPU: porcentaje del motor más ocupado y memoria.
-fn gpu_text(reading: Option<&GpuReading>) -> String {
+fn gpu_text(lang: Lang, reading: Option<&GpuReading>) -> String {
+    let t = lang.t();
     let memory = |stats: &GpuStats| {
         // Solo una GPU dedicada tiene VRAM propia; una integrada usa RAM.
         if stats.dedicated {
@@ -125,17 +130,18 @@ fn gpu_text(reading: Option<&GpuReading>) -> String {
                 memory(stats)
             )
         }
-        Some(GpuReading::Warming(stats)) => format!("midiendo… · {}", memory(stats)),
-        Some(GpuReading::NotUsed) => "sin uso".to_string(),
-        Some(GpuReading::Unavailable) => "n/d (sin permiso)".to_string(),
-        None => "midiendo…".to_string(),
+        Some(GpuReading::Warming(stats)) => format!("{} · {}", t.measuring, memory(stats)),
+        Some(GpuReading::NotUsed) => t.gpu_not_used.to_string(),
+        Some(GpuReading::Unavailable) => t.no_permission.to_string(),
+        None => t.measuring.to_string(),
     }
 }
 
 /// Texto de la fila de red: bajada y subida TCP.
-fn net_text(reading: Option<NetReading>) -> String {
+fn net_text(lang: Lang, reading: Option<NetReading>) -> String {
+    let t = lang.t();
     match reading {
-        Some(NetReading::Rate(rate)) if rate.sockets == 0 => "sin conexiones TCP".to_string(),
+        Some(NetReading::Rate(rate)) if rate.sockets == 0 => t.no_tcp.to_string(),
         Some(NetReading::Rate(rate)) => {
             format!(
                 "↓{} ↑{}",
@@ -143,15 +149,15 @@ fn net_text(reading: Option<NetReading>) -> String {
                 human_rate(rate.up_bps)
             )
         }
-        Some(NetReading::Unavailable) => "n/d (sin permiso)".to_string(),
-        Some(NetReading::Warming) | None => "midiendo…".to_string(),
+        Some(NetReading::Unavailable) => t.no_permission.to_string(),
+        Some(NetReading::Warming) | None => t.measuring.to_string(),
     }
 }
 
-fn kind_label(app: &App) -> String {
+fn kind_label(app: &App, lang: Lang) -> String {
     let kind = match app.kind {
-        AppKind::App => "aplicación",
-        AppKind::Service => "servicio",
+        AppKind::App => lang.t().kind_app,
+        AppKind::Service => lang.t().kind_service,
     };
     let id = app
         .desktop
@@ -159,8 +165,8 @@ fn kind_label(app: &App) -> String {
         .map(|d| d.id.clone())
         .or_else(|| app.app_id.clone());
     match id {
-        Some(id) => format!("{kind} · {} · {id}", app.origin.label()),
-        None => format!("{kind} · {}", app.origin.label()),
+        Some(id) => format!("{kind} · {} · {id}", app.origin.label(lang)),
+        None => format!("{kind} · {}", app.origin.label(lang)),
     }
 }
 
@@ -197,25 +203,31 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
         let graph_area = Rect::new(area.x + area.width - graphs, area.y, graphs, area.height);
         draw_graphs(buf, graph_area, app, state);
     }
+    let lang = state.lang;
+    let t = lang.t();
     let value_width = (info.width as usize).saturating_sub(LABEL_WIDTH);
 
     let threads: i64 = app.procs.iter().map(|p| p.threads).sum();
     let uptime = app_uptime(app, state.system.uptime, state.ticks_per_second)
         .map(human_duration)
-        .unwrap_or_else(|| "n/d".to_string());
+        .unwrap_or_else(|| t.na.to_string());
     let ram = match state.detail_of_selected().and_then(|d| d.pss) {
         Some(pss) => format!("{}  (PSS {})", human_bytes(app.rss), human_bytes(pss)),
-        None => format!("{}  (PSS n/d)", human_bytes(app.rss)),
+        None => format!("{}  (PSS {})", human_bytes(app.rss), t.na),
     };
     let rows: Vec<(&str, String, Style)> = vec![
-        ("Usuario", owners(app, state), theme.text()),
-        ("Activa", uptime, theme.text()),
+        (t.label_user, owners(app, state), theme.text()),
+        (t.label_uptime, uptime, theme.text()),
         (
-            "Procesos",
-            format!("{} · {threads} hilos", app.procs.len()),
+            t.label_processes,
+            lang.processes_and_threads(app.procs.len(), threads),
             theme.text(),
         ),
-        ("PIDs", pid_list(&app.pids(), value_width), theme.text()),
+        (
+            "PIDs",
+            pid_list(lang, &app.pids(), value_width),
+            theme.text(),
+        ),
         (
             "CPU",
             format!("{:.1}%", app.cpu_pct),
@@ -223,19 +235,19 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
         ),
         ("RAM", ram, theme.text()),
         (
-            "Disco",
-            disk_text(state.detail_of_selected().map(|d| d.io)),
+            t.label_disk,
+            disk_text(lang, state.detail_of_selected().map(|d| d.io)),
             theme.text(),
         ),
         (
             "GPU",
-            gpu_text(state.detail_of_selected().map(|d| &d.gpu)),
+            gpu_text(lang, state.detail_of_selected().map(|d| &d.gpu)),
             theme.text(),
         ),
         // Solo TCP y sin lo de conexiones efímeras: la etiqueta lo avisa.
         (
-            "Red aprox.",
-            net_text(state.detail_of_selected().map(|d| d.net)),
+            t.label_net,
+            net_text(lang, state.detail_of_selected().map(|d| d.net)),
             theme.text(),
         ),
     ];
@@ -248,7 +260,7 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
         write_spans(buf, line(0), &[(app.name.clone(), name_style)]);
     }
     if info.height > 1 {
-        write_spans(buf, line(1), &[(kind_label(app), theme.dim())]);
+        write_spans(buf, line(1), &[(kind_label(app, lang), theme.dim())]);
     }
     for (i, (label, value, style)) in rows.into_iter().enumerate() {
         let y = 3 + i as u16;
@@ -293,6 +305,7 @@ fn draw_graphs(buf: &mut Buffer, area: Rect, app: &App, state: &State) {
     let half = area.height / 2;
     let plot_height = half - 1;
 
+    let top = state.lang.t().axis_top;
     let cpu = history.resample(state.clock, columns, |p| p.cpu_pct as f64);
     let cpu_peak = cpu.iter().flatten().fold(0.0f64, |a, b| a.max(*b));
     let cpu_max = cpu_scale(cpu_peak);
@@ -305,8 +318,8 @@ fn draw_graphs(buf: &mut Buffer, area: Rect, app: &App, state: &State) {
             cpu_color.add_modifier(Modifier::BOLD),
         ),
         &[
-            format!("tope {cpu_max:.0}% · 2 min"),
-            format!("tope {cpu_max:.0}%"),
+            format!("{top} {cpu_max:.0}% · 2 min"),
+            format!("{top} {cpu_max:.0}%"),
         ],
         theme.dim(),
     );
@@ -326,7 +339,7 @@ fn draw_graphs(buf: &mut Buffer, area: Rect, app: &App, state: &State) {
             format!("RAM {}", human_bytes(app.rss)),
             ram_color.add_modifier(Modifier::BOLD),
         ),
-        &[format!("tope {}", human_bytes(ram_max as u64))],
+        &[format!("{top} {}", human_bytes(ram_max as u64))],
         theme.dim(),
     );
     let plot = Rect::new(area.x, y + 1, area.width, area.height - half - 1);
@@ -336,7 +349,7 @@ fn draw_graphs(buf: &mut Buffer, area: Rect, app: &App, state: &State) {
 /// Dibuja el detalle de la app seleccionada.
 pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconStore) {
     let Some(app) = state.selected_app().cloned() else {
-        let message = "La app ya no está en ejecución";
+        let message = state.lang.t().app_gone;
         buf.set_stringn(
             area.x,
             area.y,
@@ -399,10 +412,19 @@ mod tests {
             read_bps: 1_572_864.0,
             write_bps: 0.0,
         });
-        assert_eq!(disk_text(Some(rate)), "L 1.5M/s  E 0B/s");
-        assert_eq!(disk_text(Some(IoReading::Unavailable)), "n/d (sin permiso)");
-        assert_eq!(disk_text(Some(IoReading::Warming)), "midiendo…");
-        assert_eq!(disk_text(None), "midiendo…");
+        assert_eq!(disk_text(Lang::Es, Some(rate)), "L 1.5M/s  E 0B/s");
+        assert_eq!(
+            disk_text(Lang::Es, Some(IoReading::Unavailable)),
+            "n/d (sin permiso)"
+        );
+        assert_eq!(disk_text(Lang::Es, Some(IoReading::Warming)), "midiendo…");
+        assert_eq!(disk_text(Lang::Es, None), "midiendo…");
+        assert_eq!(disk_text(Lang::En, Some(rate)), "R 1.5M/s  W 0B/s");
+        assert_eq!(
+            disk_text(Lang::En, Some(IoReading::Unavailable)),
+            "n/a (no permission)"
+        );
+        assert_eq!(disk_text(Lang::En, None), "measuring…");
     }
 
     #[test]
@@ -416,7 +438,7 @@ mod tests {
             clients: 1,
         };
         assert_eq!(
-            gpu_text(Some(&GpuReading::Stats(stats.clone()))),
+            gpu_text(Lang::Es, Some(&GpuReading::Stats(stats.clone()))),
             "12% gfx · VRAM 344M"
         );
         let integrated = GpuStats {
@@ -424,7 +446,7 @@ mod tests {
             ..stats.clone()
         };
         assert_eq!(
-            gpu_text(Some(&GpuReading::Warming(integrated))),
+            gpu_text(Lang::Es, Some(&GpuReading::Warming(integrated))),
             "midiendo… · 344M RAM"
         );
         let idle = GpuStats {
@@ -432,13 +454,18 @@ mod tests {
             engine: String::new(),
             ..stats.clone()
         };
-        assert_eq!(gpu_text(Some(&GpuReading::Stats(idle))), "0% · VRAM 344M");
-        assert_eq!(gpu_text(Some(&GpuReading::NotUsed)), "sin uso");
         assert_eq!(
-            gpu_text(Some(&GpuReading::Unavailable)),
+            gpu_text(Lang::Es, Some(&GpuReading::Stats(idle))),
+            "0% · VRAM 344M"
+        );
+        assert_eq!(gpu_text(Lang::Es, Some(&GpuReading::NotUsed)), "sin uso");
+        assert_eq!(
+            gpu_text(Lang::Es, Some(&GpuReading::Unavailable)),
             "n/d (sin permiso)"
         );
-        assert_eq!(gpu_text(None), "midiendo…");
+        assert_eq!(gpu_text(Lang::Es, None), "midiendo…");
+        assert_eq!(gpu_text(Lang::En, Some(&GpuReading::NotUsed)), "not in use");
+        assert_eq!(gpu_text(Lang::En, None), "measuring…");
     }
 
     #[test]
@@ -449,21 +476,35 @@ mod tests {
             up_bps: 3174.0,
             sockets: 4,
         };
-        assert_eq!(net_text(Some(NetReading::Rate(rate))), "↓12.0K/s ↑3.1K/s");
         assert_eq!(
-            net_text(Some(NetReading::Rate(NetRate::default()))),
+            net_text(Lang::Es, Some(NetReading::Rate(rate))),
+            "↓12.0K/s ↑3.1K/s"
+        );
+        assert_eq!(
+            net_text(Lang::Es, Some(NetReading::Rate(NetRate::default()))),
             "sin conexiones TCP"
         );
-        assert_eq!(net_text(Some(NetReading::Unavailable)), "n/d (sin permiso)");
-        assert_eq!(net_text(None), "midiendo…");
+        assert_eq!(
+            net_text(Lang::Es, Some(NetReading::Unavailable)),
+            "n/d (sin permiso)"
+        );
+        assert_eq!(net_text(Lang::Es, None), "midiendo…");
+        assert_eq!(
+            net_text(Lang::En, Some(NetReading::Rate(NetRate::default()))),
+            "no TCP connections"
+        );
     }
 
     #[test]
     fn pid_list_truncates_with_a_count() {
-        assert_eq!(pid_list(&[1, 22, 333], 40), "1 22 333");
-        assert_eq!(pid_list(&[1000, 2000, 3000, 4000], 14), "1000 2000 +2");
-        assert_eq!(pid_list(&[1000, 2000], 9), "1000 2000");
-        assert_eq!(pid_list(&[123456, 2], 5), "2 en total");
-        assert_eq!(pid_list(&[], 10), "");
+        assert_eq!(pid_list(Lang::Es, &[1, 22, 333], 40), "1 22 333");
+        assert_eq!(
+            pid_list(Lang::Es, &[1000, 2000, 3000, 4000], 14),
+            "1000 2000 +2"
+        );
+        assert_eq!(pid_list(Lang::Es, &[1000, 2000], 9), "1000 2000");
+        assert_eq!(pid_list(Lang::Es, &[123456, 2], 5), "2 en total");
+        assert_eq!(pid_list(Lang::En, &[123456, 2], 7), "2 total");
+        assert_eq!(pid_list(Lang::Es, &[], 10), "");
     }
 }

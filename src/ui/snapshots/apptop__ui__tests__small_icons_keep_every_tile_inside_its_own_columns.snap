@@ -2,8 +2,8 @@
 source: src/ui/mod.rs
 expression: text
 ---
-apptop  CPU n/d  RAM n/d  Swap n/d
-── Aplicaciones (3) ────────────────────────────────────────
+apptop  CPU n/a  RAM n/a  Swap n/a
+── Applications (3) ────────────────────────────────────────
 ╭⢠⣤⣤⢤⡤⠤⠤⡄╮ ⢠⣤⣤⢤⡤⠤⠤⡄  ⢠⣤⣤⢤⡤⠤⠤⡄
 │⢸⠛⠛⠚⠓⠒⠒⡇│ ⢸⠛⠛⠚⠓⠒⠒⡇  ⢸⠛⠛⠚⠓⠒⠒⡇
 │⢸      ⡇│ ⢸      ⡇  ⢸      ⡇
@@ -11,10 +11,10 @@ apptop  CPU n/d  RAM n/d  Swap n/d
 │Alacrit…│ Firefox   Un nomb…
 ╰2% 310M ╯ 24% 5.3G  120% 12M
 
-── Servicios (2) ───────────────────────────────────────────
+── Services (2) ────────────────────────────────────────────
   ⣠⣄⡔⢢⣠⣄    ⣠⣄⡔⢢⣠⣄
  ⢀⠽⢠⠖⠲⡄⠯⡀  ⢀⠽⢠⠖⠲⡄⠯⡀
  ⠈⣲⠘⠦⠴⠃⣖⠁  ⠈⣲⠘⠦⠴⠃⣖⠁
   ⠙⠋⠣⠜⠙⠋    ⠙⠋⠣⠜⠙⠋
   docker   pipewire
-Enter abrir  / filtrar  x cerrar  K matar  p pausar  q salir
+Enter open  / filter  x close  K kill  p pause  q quit

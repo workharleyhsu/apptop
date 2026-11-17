@@ -13,6 +13,7 @@ use ratatui::DefaultTerminal;
 use crate::actions::{ancestry, send_signal, set_nice};
 use crate::apps::Sampler;
 use crate::config::{ColorMode, Config};
+use crate::i18n::Lang;
 use crate::icons::cache::default_cache_dir;
 use crate::icons::{IconLocator, IconStore};
 
@@ -31,6 +32,8 @@ pub struct RunOptions {
     pub theme: Theme,
     /// Tema de iconos; `None` = detectar.
     pub icon_theme: Option<String>,
+    /// Idioma de la interfaz.
+    pub lang: Lang,
     /// Provoca un panic tras el primer cuadro (para probar la restauración).
     pub panic_test: bool,
 }
@@ -57,6 +60,7 @@ impl RunOptions {
                 accent_rgb: config.accent.unwrap_or(DEFAULT_ACCENT),
             },
             icon_theme: config.icon_theme.clone(),
+            lang: config.language,
             panic_test: false,
         }
     }
@@ -67,6 +71,7 @@ impl RunOptions {
         state.refresh = clamp_refresh(self.refresh);
         state.sort = self.sort;
         state.icon_size = self.icon_size;
+        state.lang = self.lang;
         state
     }
 
@@ -177,7 +182,7 @@ fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Resul
             if let Some(request) = state.pending.take() {
                 let report = send_signal(&request.targets, request.signal);
                 state.notify(
-                    report.summary(request.signal, &request.label),
+                    report.summary(state.lang, request.signal, &request.label),
                     report.is_problem(),
                 );
                 // Refresca pronto para reflejar el efecto de la señal.
@@ -187,7 +192,7 @@ fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Resul
             if let Some(request) = state.pending_nice.take() {
                 let report = set_nice(&request.targets, request.value);
                 state.notify(
-                    report.summary(request.value, &request.label),
+                    report.summary(state.lang, request.value, &request.label),
                     report.is_problem(),
                 );
                 next_sample = Instant::now() + Duration::from_millis(150);
@@ -221,6 +226,7 @@ mod tests {
             refresh: Duration::from_millis(2500),
             sort: SortKey::Ram,
             icon_size: IconSize::Small,
+            language: Lang::Es,
             color: ColorMode::Palette256,
             accent: Some((9, 8, 7)),
             icon_theme: Some("Adwaita".into()),
@@ -230,6 +236,8 @@ mod tests {
         assert_eq!(state.refresh, Duration::from_millis(2500));
         assert_eq!(state.sort, SortKey::Ram);
         assert_eq!(state.icon_size, (8, 4));
+        assert_eq!(state.lang, Lang::Es);
+        assert_eq!(RunOptions::default().new_state().lang, Lang::En);
         assert!(!state.theme.truecolor);
         assert_eq!(state.theme.accent_rgb, (9, 8, 7));
         assert_eq!(options.new_store().locator().theme(), "Adwaita");

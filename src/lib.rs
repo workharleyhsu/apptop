@@ -4,5 +4,6 @@ pub mod actions;
 pub mod apps;
 pub mod collect;
 pub mod config;
+pub mod i18n;
 pub mod icons;
 pub mod ui;

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use super::cgroup::{classify, Unit};
 use super::desktop::{DesktopIndex, DesktopInfo};
 use crate::collect::ProcInfo;
+use crate::i18n::Lang;
 
 /// Sección de la grilla en la que aparece un grupo.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -27,14 +28,15 @@ pub enum Origin {
 }
 
 impl Origin {
-    pub fn label(self) -> &'static str {
+    pub fn label(self, lang: Lang) -> &'static str {
+        let t = lang.t();
         match self {
-            Origin::Scope => "app",
-            Origin::Flatpak => "flatpak",
-            Origin::UserService => "serv-usuario",
-            Origin::SystemService => "serv-sistema",
-            Origin::Container => "contenedor",
-            Origin::Fallback => "proceso",
+            Origin::Scope => t.origin_app,
+            Origin::Flatpak => t.origin_flatpak,
+            Origin::UserService => t.origin_user_service,
+            Origin::SystemService => t.origin_system_service,
+            Origin::Container => t.origin_container,
+            Origin::Fallback => t.origin_process,
         }
     }
 }

@@ -37,6 +37,7 @@ pub fn draw_top(buf: &mut Buffer, area: Rect, state: &State) {
         return;
     }
     let theme = state.theme;
+    let t = state.lang.t();
     let label = theme.header();
     let dim = theme.dim();
     let mut spans: Vec<(String, Style)> = vec![(
@@ -55,7 +56,7 @@ pub fn draw_top(buf: &mut Buffer, area: Rect, state: &State) {
                 spans.push((off, dim));
                 spans.push((format!(" {value}"), theme.text()));
             }
-            None => spans.push(("n/d".to_string(), dim)),
+            None => spans.push((t.na.to_string(), dim)),
         }
     };
 
@@ -76,7 +77,7 @@ pub fn draw_top(buf: &mut Buffer, area: Rect, state: &State) {
     gauge("RAM", ratio(system.mem), amounts(system.mem));
     // Sin swap configurada no es un error: se muestra en cero.
     match system.swap {
-        Some((0, _)) => gauge("Swap", Some(0.0), "sin swap".to_string()),
+        Some((0, _)) => gauge("Swap", Some(0.0), t.no_swap.to_string()),
         swap => gauge("Swap", ratio(swap), amounts(swap)),
     }
 
@@ -87,10 +88,10 @@ pub fn draw_top(buf: &mut Buffer, area: Rect, state: &State) {
         .iter()
         .filter(|a| a.kind == crate::apps::AppKind::App)
         .count();
-    let summary = format!(
-        "⟳ {} · {apps} apps · {} servicios",
-        super::format::human_interval(state.refresh),
-        state.apps.len() - apps
+    let summary = state.lang.top_summary(
+        &super::format::human_interval(state.refresh),
+        apps,
+        state.apps.len() - apps,
     );
     let width = summary.chars().count() as u16;
     if area.x + area.width >= end + width + 2 {
@@ -123,76 +124,76 @@ impl Hint {
 
 /// Atajos disponibles según la vista y el modo.
 pub fn hints(state: &State) -> Vec<Hint> {
+    let lang = state.lang;
+    let t = lang.t();
     match state.mode {
         Mode::Filter => {
             return vec![
-                Hint::new("Enter", "aplicar", 9),
-                Hint::new("Esc", "borrar filtro", 8),
-                Hint::new("←↑↓→", "mover", 1),
+                Hint::new("Enter", t.hint_apply, 9),
+                Hint::new("Esc", t.hint_clear_filter, 8),
+                Hint::new("←↑↓→", t.hint_move, 1),
             ]
         }
         Mode::Confirm(_) => {
             return vec![
-                Hint::new("s", "confirmar", 9),
-                Hint::new("n/Esc", "cancelar", 9),
+                Hint::new(t.yes_key, t.hint_confirm, 9),
+                Hint::new("n/Esc", t.hint_cancel, 9),
             ]
         }
         Mode::SignalMenu(_) => {
             return vec![
-                Hint::new("↑/↓", "elegir", 5),
-                Hint::new("Enter", "enviar", 9),
-                Hint::new("Esc", "cancelar", 9),
+                Hint::new("↑/↓", t.hint_choose, 5),
+                Hint::new("Enter", t.hint_send, 9),
+                Hint::new("Esc", t.hint_cancel, 9),
             ]
         }
         Mode::Nice(_) => {
             return vec![
-                Hint::new("←/→", "cambiar", 5),
-                Hint::new("Enter", "aplicar", 9),
-                Hint::new("Esc", "cancelar", 9),
+                Hint::new("←/→", t.hint_change, 5),
+                Hint::new("Enter", t.hint_apply, 9),
+                Hint::new("Esc", t.hint_cancel, 9),
             ]
         }
         Mode::Normal => {}
     }
+    let pause = if state.scope_is_paused() {
+        t.hint_resume
+    } else {
+        t.hint_pause
+    };
     match state.view {
         View::Grid => {
+            let sort = format!("{}: {}", t.hint_sort, state.sort.label(lang));
+            let view = format!("{}: {}", t.hint_view, state.sections.label(lang));
             let mut hints = vec![
-                Hint::new("←↑↓→/hjkl", "mover", 1),
-                Hint::new("Enter", "abrir", 6),
-                Hint::new("/", "filtrar", 5),
-                Hint::new("s", format!("orden: {}", state.sort.label()), 4),
-                Hint::new("Tab", format!("ver: {}", state.sections.label()), 3),
-                Hint::new("x", "cerrar", 7),
-                Hint::new("K", "matar", 6),
-                Hint::new("p", pause_label(state), 5),
-                Hint::new("n", "prioridad", 3),
-                Hint::new("S", "señal", 3),
-                Hint::new("+/-", "refresco", 2),
+                Hint::new("←↑↓→/hjkl", t.hint_move, 1),
+                Hint::new("Enter", t.hint_open, 6),
+                Hint::new("/", t.hint_filter, 5),
+                Hint::new("s", sort, 4),
+                Hint::new("Tab", view, 3),
+                Hint::new("x", t.hint_close, 7),
+                Hint::new("K", t.hint_kill, 6),
+                Hint::new("p", pause, 5),
+                Hint::new("n", t.hint_priority, 3),
+                Hint::new("S", t.hint_signal, 3),
+                Hint::new("+/-", t.hint_refresh, 2),
             ];
             if !state.filter.is_empty() {
-                hints.push(Hint::new("Esc", "quitar filtro", 8));
+                hints.push(Hint::new("Esc", t.hint_clear_filter, 8));
             }
-            hints.push(Hint::new("q", "salir", 9));
+            hints.push(Hint::new("q", t.hint_quit, 9));
             hints
         }
         View::Detail => vec![
-            Hint::new("↑↓/jk", "elegir proceso", 3),
-            Hint::new("x", "cerrar", 6),
-            Hint::new("K", "matar", 5),
-            Hint::new("p", pause_label(state), 4),
-            Hint::new("n", "prioridad", 4),
-            Hint::new("S", "señal", 4),
-            Hint::new("Esc", "volver", 8),
-            Hint::new("q", "salir", 9),
+            Hint::new("↑↓/jk", t.hint_select_process, 3),
+            Hint::new("x", t.hint_close, 6),
+            Hint::new("K", t.hint_kill, 5),
+            Hint::new("p", pause, 4),
+            Hint::new("n", t.hint_priority, 4),
+            Hint::new("S", t.hint_signal, 4),
+            Hint::new("Esc", t.hint_back, 8),
+            Hint::new("q", t.hint_quit, 9),
         ],
-    }
-}
-
-/// Qué hará la tecla de pausa ahora mismo.
-fn pause_label(state: &State) -> &'static str {
-    if state.scope_is_paused() {
-        "reanudar"
-    } else {
-        "pausar"
     }
 }
 
@@ -268,7 +269,7 @@ mod tests {
         let keys = |s: &State| -> Vec<String> { hints(s).into_iter().map(|h| h.key).collect() };
         assert!(keys(&s).contains(&"Enter".to_string()));
         assert!(!keys(&s).contains(&"Esc".to_string()));
-        assert!(hints(&s).iter().any(|h| h.description == "orden: nombre"));
+        assert!(hints(&s).iter().any(|h| h.description == "sort: name"));
         s.filter = "x".into();
         assert!(keys(&s).contains(&"Esc".to_string()));
         s.mode = Mode::Filter;
@@ -294,7 +295,7 @@ mod tests {
         // Primero se va "mover"; salir y quitar filtro son los últimos.
         assert!(!keys(80).contains(&"←↑↓→/hjkl".to_string()));
         assert!(keys(80).contains(&"q".to_string()));
-        assert_eq!(keys(26), vec!["Esc", "q"]);
+        assert_eq!(keys(24), vec!["Esc", "q"]);
         s.mode = Mode::Confirm(crate::ui::state::ActionRequest {
             signal: crate::actions::Signal::SIGTERM,
             targets: Vec::new(),
@@ -302,7 +303,32 @@ mod tests {
             single_process: false,
             excluded: 0,
         });
+        assert_eq!(fitted(&s, 200), vec!["y", "n/Esc"]);
+        s.lang = crate::i18n::Lang::Es;
         assert_eq!(fitted(&s, 200), vec!["s", "n/Esc"]);
         assert_eq!(fitted(&s, 3).len(), 1, "siempre queda al menos uno");
+    }
+
+    /// A 80 columnas deben verse siempre las acciones principales, en los
+    /// dos idiomas.
+    #[test]
+    fn the_main_actions_fit_in_80_columns_in_every_language() {
+        for lang in crate::i18n::Lang::ALL {
+            let mut s = State::new(super::super::Theme::default());
+            s.lang = lang;
+            for view in [View::Grid, View::Detail] {
+                s.view = view;
+                let shown: Vec<String> = fit_hints(hints(&s), 80)
+                    .into_iter()
+                    .map(|h| h.key)
+                    .collect();
+                for key in ["x", "K", "p", "q"] {
+                    assert!(
+                        shown.contains(&key.to_string()),
+                        "{lang:?} {view:?}: {shown:?}"
+                    );
+                }
+            }
+        }
     }
 }

@@ -2,27 +2,27 @@
 source: src/ui/mod.rs
 expression: text
 ---
-apptop  CPU n/d  RAM n/d  Swap n/d                   ⟳ 1s · 3 apps · 2 servicios
-                          Firefox                           CPU 23.5%  tope 100%
-⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  aplicación · app                             ⢸⣿⡇
+apptop  CPU n/a  RAM n/a  Swap n/a                    ⟳ 1s · 3 apps · 2 services
+                          Firefox                           CPU 23.5%   max 100%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  application · app                            ⢸⣿⡇
 ⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
-⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  Usuario    ana                               ⢸⣿⡇     ⣀
-⢸                      ⡇  Activa     2h 03m                            ⢸⣿⣇⣤⣴⣶⣾⣿⣿
-⢸                      ⡇  Procesos   3 · 172 hilos               ⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G   tope 6.6G
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  User       ana                               ⢸⣿⡇     ⣀
+⢸                      ⡇  Uptime     2h 03m                            ⢸⣿⣇⣤⣴⣶⣾⣿⣿
+⢸                      ⡇  Processes  3 · 172 threads             ⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G    max 6.6G
 ⢸                      ⡇  CPU        23.5%
 ⢸                      ⡇  RAM        5.3G  (PSS 1.2G)              ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
-⢸                      ⡇  Disco      L 2.3M/s  E 342K/s          ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⢸                      ⡇  Disk       R 2.3M/s  W 342K/s          ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
 ⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠔⠁  GPU        18% gfx · VRAM 512M         ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-                          Red aprox. ↓820K/s ↑50.8K/s            ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+                          Net est.   ↓820K/s ↑50.8K/s            ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
 
-     PID  PROCESO                                  CPU%     RAM HILOS  ESTADO
-    4100  firefox                                   1.5    900M   120  S duerme
-    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S duerme
-    4222  └─ firefox                               97.2    250M    22  T pausado
-
-
+     PID  PROCESS                                  CPU%     RAM   THR  STATE
+    4100  firefox                                   1.5    900M   120  S asleep
+    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S asleep
+    4222  └─ firefox                               97.2    250M    22  T stopped
 
 
 
-x cerrar  K matar  p pausar  n prioridad  S señal  Esc volver  q salir
+
+
+x close  K kill  p pause  n priority  S signal  Esc back  q quit

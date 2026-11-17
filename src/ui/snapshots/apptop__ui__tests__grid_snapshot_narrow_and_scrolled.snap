@@ -2,11 +2,11 @@
 source: src/ui/mod.rs
 expression: text
 ---
-apptop  CPU n/d  RAM n/d  Swap n/d
+apptop  CPU n/a  RAM n/a  Swap n/a
    Un nombre largu…
      120.0% 12.0M
 
-── Servicios (2) ───────────────────────
+── Services (2) ────────────────────────
          ⢰⠒⠒⡆       ╭      ⢰⠒⠒⡆      ╮
      ⡔⠉⠲⠔⠊  ⠑⠢⠖⠉⢢   │  ⡔⠉⠲⠔⠊  ⠑⠢⠖⠉⢢  │
      ⢘⠆  ⣀⠤⠤⣀  ⠰⡃   │  ⢘⠆  ⣀⠤⠤⣀  ⠰⡃  │
@@ -17,4 +17,4 @@ apptop  CPU n/d  RAM n/d  Swap n/d
          ⠸⠤⠤⠇       │      ⠸⠤⠤⠇      │
         docker      │    pipewire    │
       0.0% 108M     ╰   0.4% 18.0M   ╯
-Enter abrir  x cerrar  K matar  q salir
+Enter open  x close  K kill  q quit

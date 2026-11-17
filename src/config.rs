@@ -8,6 +8,7 @@
 //! refresh = 1.0          # segundos entre refrescos (0.25 a 10)
 //! sort = "name"          # name | cpu | ram
 //! icon_size = "large"    # small (8x4) | medium (12x6) | large (16x8)
+//! language = "en"        # en | es
 //!
 //! [theme]
 //! color = "auto"         # auto | truecolor | 256
@@ -20,6 +21,7 @@ use std::time::Duration;
 
 use toml::{Table, Value};
 
+use crate::i18n::Lang;
 use crate::ui::state::{clamp_refresh, SortKey, DEFAULT_REFRESH};
 
 /// Tamaños de icono de la grilla, en celdas. Siempre 2:1 para que el icono
@@ -93,6 +95,8 @@ pub struct Config {
     pub refresh: Duration,
     pub sort: SortKey,
     pub icon_size: IconSize,
+    /// Idioma de la interfaz.
+    pub language: Lang,
     pub color: ColorMode,
     /// Color de acento; `None` = el de fábrica.
     pub accent: Option<(u8, u8, u8)>,
@@ -106,9 +110,70 @@ impl Default for Config {
             refresh: DEFAULT_REFRESH,
             sort: SortKey::default(),
             icon_size: IconSize::default(),
+            language: Lang::default(),
             color: ColorMode::default(),
             accent: None,
             icon_theme: None,
+        }
+    }
+}
+
+/// Un problema encontrado al leer la configuración. Se guarda estructurado
+/// porque el idioma en que hay que mostrarlo también sale de la
+/// configuración (o de `--lang`), y recién se conoce después de leerla.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Warning {
+    /// El archivo pedido con `--config` no se pudo leer.
+    Unreadable(String),
+    /// El TOML no se pudo interpretar; lleva la primera línea del error.
+    InvalidToml(String),
+    /// `refresh` fuera de rango: valor pedido y valor usado.
+    RefreshClamped(f64, f64),
+    RefreshNotPositive(f64),
+    /// Valor no reconocido: clave, valor recibido y valores esperados.
+    Expected(String, String, &'static str),
+    /// Tipo TOML inesperado: clave y nombre del tipo recibido.
+    WrongType(String, String),
+    UnknownKey(String),
+}
+
+impl Warning {
+    pub fn text(&self, lang: Lang) -> String {
+        match (lang, self) {
+            (Lang::En, Warning::Unreadable(err)) => format!("could not be read ({err})"),
+            (Lang::Es, Warning::Unreadable(err)) => format!("no se pudo leer ({err})"),
+            (Lang::En, Warning::InvalidToml(err)) => {
+                format!("invalid TOML, using the defaults ({err})")
+            }
+            (Lang::Es, Warning::InvalidToml(err)) => {
+                format!("TOML inválido, se usan los valores por defecto ({err})")
+            }
+            (Lang::En, Warning::RefreshClamped(asked, used)) => {
+                format!("refresh = {asked}: out of range, using {used} s")
+            }
+            (Lang::Es, Warning::RefreshClamped(asked, used)) => {
+                format!("refresh = {asked}: fuera de rango, se usa {used} s")
+            }
+            (Lang::En, Warning::RefreshNotPositive(asked)) => {
+                format!("refresh = {asked}: must be a positive number")
+            }
+            (Lang::Es, Warning::RefreshNotPositive(asked)) => {
+                format!("refresh = {asked}: debe ser un número positivo")
+            }
+            (Lang::En, Warning::Expected(key, value, options)) => {
+                format!("{key} = \"{value}\": expected {options}")
+            }
+            (Lang::Es, Warning::Expected(key, value, options)) => {
+                format!("{key} = \"{value}\": se esperaba {options}")
+            }
+            (Lang::En, Warning::WrongType(key, kind)) => {
+                format!("{key}: unexpected type ({kind})")
+            }
+            (Lang::Es, Warning::WrongType(key, kind)) => {
+                format!("{key}: tipo inesperado ({kind})")
+            }
+            (Lang::En, Warning::UnknownKey(key)) => format!("unknown key '{key}'"),
+            (Lang::Es, Warning::UnknownKey(key)) => format!("clave desconocida '{key}'"),
         }
     }
 }
@@ -133,49 +198,72 @@ pub fn default_path() -> Option<PathBuf> {
         .map(|base| base.join("apptop").join("config.toml"))
 }
 
+/// Resultado de cargar la configuración.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Loaded {
+    pub config: Config,
+    /// Archivo leído (o el que se intentó leer), si hubo alguno.
+    pub path: Option<PathBuf>,
+    pub warnings: Vec<Warning>,
+}
+
+impl Loaded {
+    /// Advertencias listas para mostrar, con el archivo por delante.
+    pub fn messages(&self, lang: Lang) -> Vec<String> {
+        let prefix = self
+            .path
+            .as_ref()
+            .map(|p| format!("{}: ", p.display()))
+            .unwrap_or_default();
+        self.warnings
+            .iter()
+            .map(|w| format!("{prefix}{}", w.text(lang)))
+            .collect()
+    }
+}
+
 impl Config {
-    /// Carga la configuración. Devuelve también las advertencias a mostrar.
-    /// Que el archivo no exista no es un problema.
-    pub fn load(path: Option<&Path>) -> (Self, Vec<String>) {
+    /// Carga la configuración. Que el archivo no exista no es un problema,
+    /// salvo que se haya pedido explícitamente.
+    pub fn load(path: Option<&Path>) -> Loaded {
         let explicit = path.is_some();
         let Some(path) = path.map(Path::to_path_buf).or_else(default_path) else {
-            return (Self::default(), Vec::new());
+            return Loaded {
+                config: Self::default(),
+                path: None,
+                warnings: Vec::new(),
+            };
         };
-        match std::fs::read_to_string(&path) {
-            Ok(text) => {
-                let (config, warnings) = Self::parse(&text);
-                let located = warnings
-                    .into_iter()
-                    .map(|w| format!("{}: {w}", path.display()))
-                    .collect();
-                (config, located)
-            }
-            // Solo es un error si el usuario pidió ese archivo explícitamente.
-            Err(err) if explicit => (
-                Self::default(),
-                vec![format!("{}: no se pudo leer ({err})", path.display())],
-            ),
+        let (config, warnings) = match std::fs::read_to_string(&path) {
+            Ok(text) => Self::parse(&text),
+            Err(err) if explicit => (Self::default(), vec![Warning::Unreadable(err.to_string())]),
             Err(_) => (Self::default(), Vec::new()),
+        };
+        Loaded {
+            config,
+            path: Some(path),
+            warnings,
         }
     }
 
     /// Interpreta el texto TOML campo por campo.
-    pub fn parse(text: &str) -> (Self, Vec<String>) {
+    pub fn parse(text: &str) -> (Self, Vec<Warning>) {
         let mut config = Self::default();
         let mut warnings = Vec::new();
         let table: Table = match text.parse() {
             Ok(table) => table,
             Err(err) => {
                 let reason = err.to_string();
-                let first = reason.lines().next().unwrap_or("error de sintaxis");
-                warnings.push(format!(
-                    "TOML inválido, se usan los valores por defecto ({first})"
-                ));
+                let first = reason.lines().next().unwrap_or("syntax error").to_string();
+                warnings.push(Warning::InvalidToml(first));
                 return (config, warnings);
             }
         };
 
         for (key, value) in &table {
+            let expected = |text: &str, options: &'static str| {
+                Warning::Expected(key.clone(), text.to_string(), options)
+            };
             match (key.as_str(), value) {
                 ("refresh", Value::Float(_) | Value::Integer(_)) => {
                     let seconds = match value {
@@ -187,64 +275,65 @@ impl Config {
                         let wanted = Duration::from_secs_f64(seconds.min(3600.0));
                         config.refresh = clamp_refresh(wanted);
                         if config.refresh != wanted {
-                            warnings.push(format!(
-                                "refresh = {seconds}: fuera de rango, se usa {} s",
-                                config.refresh.as_secs_f64()
+                            warnings.push(Warning::RefreshClamped(
+                                seconds,
+                                config.refresh.as_secs_f64(),
                             ));
                         }
                     } else {
-                        warnings.push(format!("refresh = {seconds}: debe ser un número positivo"));
+                        warnings.push(Warning::RefreshNotPositive(seconds));
                     }
                 }
                 ("sort", Value::String(text)) => match SortKey::parse(text) {
                     Some(sort) => config.sort = sort,
-                    None => {
-                        warnings.push(format!("sort = \"{text}\": se esperaba name, cpu o ram"))
-                    }
+                    None => warnings.push(expected(text, "name, cpu, ram")),
                 },
                 ("icon_size", Value::String(text)) => match IconSize::parse(text) {
                     Some(size) => config.icon_size = size,
-                    None => warnings.push(format!(
-                        "icon_size = \"{text}\": se esperaba small, medium o large"
-                    )),
+                    None => warnings.push(expected(text, "small, medium, large")),
+                },
+                ("language", Value::String(text)) => match Lang::parse(text) {
+                    Some(lang) => config.language = lang,
+                    None => warnings.push(expected(text, "en, es")),
                 },
                 ("theme", Value::Table(theme)) => config.parse_theme(theme, &mut warnings),
-                ("refresh" | "sort" | "icon_size" | "theme", other) => {
-                    warnings.push(format!("{key}: tipo inesperado ({})", other.type_str()));
+                ("refresh" | "sort" | "icon_size" | "language" | "theme", other) => {
+                    warnings.push(Warning::WrongType(
+                        key.clone(),
+                        other.type_str().to_string(),
+                    ));
                 }
-                _ => warnings.push(format!("clave desconocida '{key}'")),
+                _ => warnings.push(Warning::UnknownKey(key.clone())),
             }
         }
         (config, warnings)
     }
 
-    fn parse_theme(&mut self, theme: &Table, warnings: &mut Vec<String>) {
+    fn parse_theme(&mut self, theme: &Table, warnings: &mut Vec<Warning>) {
         for (key, value) in theme {
+            let full = format!("theme.{key}");
             match (key.as_str(), value) {
                 ("color", Value::String(text)) => match ColorMode::parse(text) {
                     Some(mode) => self.color = mode,
-                    None => warnings.push(format!(
-                        "theme.color = \"{text}\": se esperaba auto, truecolor o 256"
+                    None => warnings.push(Warning::Expected(
+                        full,
+                        text.clone(),
+                        "auto, truecolor, 256",
                     )),
                 },
                 // `color = 256` sin comillas también vale.
                 ("color", Value::Integer(256)) => self.color = ColorMode::Palette256,
                 ("accent", Value::String(text)) => match parse_hex_color(text) {
                     Some(rgb) => self.accent = Some(rgb),
-                    None => {
-                        warnings.push(format!("theme.accent = \"{text}\": se esperaba #rrggbb"))
-                    }
+                    None => warnings.push(Warning::Expected(full, text.clone(), "#rrggbb")),
                 },
                 ("icons", Value::String(text)) if !text.trim().is_empty() => {
                     self.icon_theme = Some(text.trim().to_string());
                 }
                 ("color" | "accent" | "icons", other) => {
-                    warnings.push(format!(
-                        "theme.{key}: valor inesperado ({})",
-                        other.type_str()
-                    ));
+                    warnings.push(Warning::WrongType(full, other.type_str().to_string()));
                 }
-                _ => warnings.push(format!("clave desconocida 'theme.{key}'")),
+                _ => warnings.push(Warning::UnknownKey(full)),
             }
         }
     }
@@ -252,7 +341,7 @@ impl Config {
     /// La configuración efectiva en formato TOML (para `--print-config`).
     pub fn to_toml(&self) -> String {
         let mut out = format!(
-            "refresh = {}\nsort = \"{}\"\nicon_size = \"{}\"\n\n[theme]\ncolor = \"{}\"\n",
+            "refresh = {}\nsort = \"{}\"\nicon_size = \"{}\"\nlanguage = \"{}\"\n\n[theme]\ncolor = \"{}\"\n",
             self.refresh.as_secs_f64(),
             match self.sort {
                 SortKey::Name => "name",
@@ -260,6 +349,7 @@ impl Config {
                 SortKey::Ram => "ram",
             },
             self.icon_size.label(),
+            self.language.code(),
             self.color.label(),
         );
         if let Some((r, g, b)) = self.accent {
@@ -291,6 +381,7 @@ mod tests {
             refresh = 2.5
             sort = "cpu"
             icon_size = "medium"
+            language = "es"
 
             [theme]
             color = "256"
@@ -302,6 +393,7 @@ mod tests {
         assert_eq!(config.refresh, Duration::from_millis(2500));
         assert_eq!(config.sort, SortKey::Cpu);
         assert_eq!(config.icon_size.cells(), (12, 6));
+        assert_eq!(config.language, Lang::Es);
         assert_eq!(config.color, ColorMode::Palette256);
         assert_eq!(config.accent, Some((255, 136, 0)));
         assert_eq!(config.icon_theme.as_deref(), Some("Papirus"));
@@ -327,11 +419,15 @@ mod tests {
         assert_eq!(config.color, ColorMode::Palette256);
         assert_eq!(config.accent, None);
         assert_eq!(warnings.len(), 5, "{warnings:?}");
-        assert!(warnings
-            .iter()
-            .any(|w| w.contains("clave desconocida 'volumen'")));
-        assert!(warnings.iter().any(|w| w.contains("theme.brillo")));
-        assert!(warnings.iter().any(|w| w.contains("#rrggbb")));
+        let text = |lang| -> Vec<String> { warnings.iter().map(|w| w.text(lang)).collect() };
+        assert!(text(Lang::En).contains(&"unknown key 'volumen'".to_string()));
+        assert!(text(Lang::Es).contains(&"clave desconocida 'volumen'".to_string()));
+        assert!(text(Lang::En).contains(&"unknown key 'theme.brillo'".to_string()));
+        assert!(text(Lang::En).contains(&"theme.accent = \"azul\": expected #rrggbb".to_string()));
+        assert!(
+            text(Lang::Es).contains(&"sort = \"tamaño\": se esperaba name, cpu, ram".to_string())
+        );
+        assert!(text(Lang::En).contains(&"refresh: unexpected type (string)".to_string()));
     }
 
     #[test]
@@ -351,7 +447,8 @@ mod tests {
         let (config, warnings) = Config::parse("refresh = = 1\n[[[");
         assert_eq!(config, Config::default());
         assert_eq!(warnings.len(), 1);
-        assert!(warnings[0].starts_with("TOML inválido"));
+        assert!(warnings[0].text(Lang::En).starts_with("invalid TOML"));
+        assert!(warnings[0].text(Lang::Es).starts_with("TOML inválido"));
     }
 
     #[test]
@@ -359,15 +456,35 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join("config.toml");
         std::fs::write(&path, "sort = \"ram\"\nextra = 1\n").unwrap();
-        let (config, warnings) = Config::load(Some(&path));
-        assert_eq!(config.sort, SortKey::Ram);
-        assert_eq!(warnings.len(), 1);
-        assert!(warnings[0].starts_with(&path.display().to_string()));
+        let loaded = Config::load(Some(&path));
+        assert_eq!(loaded.config.sort, SortKey::Ram);
+        let messages = loaded.messages(Lang::En);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(
+            messages[0],
+            format!("{}: unknown key 'extra'", path.display())
+        );
 
         // Pedido explícitamente y no existe: se avisa.
-        let (config, warnings) = Config::load(Some(&tmp.path().join("no-existe.toml")));
-        assert_eq!(config, Config::default());
-        assert_eq!(warnings.len(), 1);
+        let loaded = Config::load(Some(&tmp.path().join("no-existe.toml")));
+        assert_eq!(loaded.config, Config::default());
+        assert!(matches!(
+            loaded.warnings.as_slice(),
+            [Warning::Unreadable(_)]
+        ));
+        assert!(loaded.messages(Lang::Es)[0].contains("no se pudo leer"));
+    }
+
+    #[test]
+    fn language_defaults_to_english_and_rejects_unknown_values() {
+        assert_eq!(Config::parse("").0.language, Lang::En);
+        assert_eq!(Config::parse("language = \"es\"").0.language, Lang::Es);
+        let (config, warnings) = Config::parse("language = \"klingon\"");
+        assert_eq!(config.language, Lang::En);
+        assert_eq!(
+            warnings[0].text(Lang::En),
+            "language = \"klingon\": expected en, es"
+        );
     }
 
     #[test]
@@ -376,6 +493,7 @@ mod tests {
             refresh: Duration::from_millis(750),
             sort: SortKey::Ram,
             icon_size: IconSize::Small,
+            language: Lang::Es,
             color: ColorMode::Truecolor,
             accent: Some((1, 2, 3)),
             icon_theme: Some("Adwaita".into()),
