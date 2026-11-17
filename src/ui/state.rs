@@ -8,6 +8,7 @@ use crate::apps::{App, AppKind, DetailData, Sample};
 use crate::collect::SystemStats;
 use crate::icons::GRID_ICON;
 
+use super::graph::{History, Point};
 use super::grid::GridLayout;
 use super::theme::Theme;
 use super::tree::{tree_rows, TreeView};
@@ -141,6 +142,11 @@ pub struct State {
     pub ticks_per_second: f64,
     /// Mediciones de la app abierta en detalle.
     pub detail: Option<DetailData>,
+    /// Historial de CPU y RAM de cada app (por id), para los gráficos.
+    pub history: HashMap<String, History>,
+    /// Segundos transcurridos al tomar la última muestra.
+    pub clock: f64,
+    started: std::time::Instant,
     /// Proceso elegido en el árbol del detalle; `None` = toda la app.
     pub proc_selected: Option<i32>,
     /// Dónde quedó dibujado el árbol de procesos.
@@ -173,6 +179,9 @@ impl State {
             system: SystemStats::default(),
             ticks_per_second: 100.0,
             detail: None,
+            history: HashMap::new(),
+            clock: 0.0,
+            started: std::time::Instant::now(),
             proc_selected: None,
             tree: TreeView::default(),
             users: HashMap::new(),
@@ -193,6 +202,21 @@ impl State {
         }
         self.detail = sample.detail;
         self.set_apps(sample.apps);
+        self.record_history(self.started.elapsed().as_secs_f64());
+    }
+
+    /// Anota en el historial el estado actual de cada app, en el instante
+    /// `now` (segundos), y olvida las apps que ya no existen.
+    pub fn record_history(&mut self, now: f64) {
+        self.clock = now;
+        for app in &self.apps {
+            self.history.entry(app.id.clone()).or_default().push(Point {
+                at: now,
+                cpu_pct: app.cpu_pct,
+                rss: app.rss,
+            });
+        }
+        self.history.retain(|_, h| h.last_at() == Some(now));
     }
 
     /// Reemplaza las apps por una muestra nueva conservando la selección.
@@ -647,6 +671,26 @@ pub(crate) mod tests {
         assert_eq!(s.proc_selected, None);
         s.move_proc_cursor(-3);
         assert_eq!(s.proc_selected, None);
+    }
+
+    #[test]
+    fn history_tracks_every_app_and_forgets_dead_ones() {
+        let mut s = State::new(Theme::default());
+        s.set_apps(sample_apps());
+        s.record_history(1.0);
+        s.record_history(2.0);
+        assert_eq!(s.history.len(), 5);
+        assert_eq!(s.history["App:Firefox"].len(), 2);
+        s.set_apps(
+            sample_apps()
+                .into_iter()
+                .filter(|a| a.name != "Firefox")
+                .collect(),
+        );
+        s.record_history(3.0);
+        assert!(!s.history.contains_key("App:Firefox"));
+        assert_eq!(s.history["Service:docker"].len(), 3);
+        assert_eq!(s.clock, 3.0);
     }
 
     #[test]

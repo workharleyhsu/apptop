@@ -3,6 +3,7 @@
 pub mod bars;
 pub mod detail;
 pub mod format;
+pub mod graph;
 pub mod grid;
 pub mod input;
 pub mod run;
@@ -200,6 +201,20 @@ mod tests {
             app_id: "App:Firefox".into(),
             pss: Some(1200 << 20),
         });
+        // Historial de 90 s: CPU en rampa con un pico, RAM creciendo.
+        for t in 0..90 {
+            let cpu = if (40..50).contains(&t) {
+                180.0
+            } else {
+                t as f32 / 2.0
+            };
+            let app = &mut state.apps[1];
+            (app.cpu_pct, app.rss) = (cpu, (4000 + t * 15) << 20);
+            state.record_history(t as f64);
+        }
+        let app = &mut state.apps[1];
+        (app.cpu_pct, app.rss) = (23.5, 5400 << 20);
+        state.record_history(90.0);
         state
     }
 

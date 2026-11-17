@@ -9,9 +9,31 @@ use crate::icons::{IconStore, DETAIL_ICON};
 
 use super::bars::write_spans;
 use super::format::{human_bytes, human_duration};
+use super::graph::{cpu_scale, draw_area, History};
 use super::grid::icon_for;
 use super::state::State;
 use super::tree;
+
+/// Ancho mínimo y máximo del bloque de gráficos, y ancho cómodo del bloque
+/// de datos que se le reserva antes de darle más lugar a los gráficos.
+const GRAPH_MIN: u16 = 20;
+const GRAPH_MAX: u16 = 60;
+const INFO_COMFORT: u16 = 46;
+const INFO_MIN: u16 = 30;
+
+/// Ancho del bloque de gráficos para un ancho total, o 0 si no entra.
+pub fn graph_width(total: u16) -> u16 {
+    let fixed = DETAIL_ICON.0 + 2 * GAP;
+    let spare = total.saturating_sub(fixed + INFO_COMFORT);
+    if spare >= GRAPH_MIN {
+        spare.min(GRAPH_MAX)
+    } else if total >= fixed + INFO_MIN + GRAPH_MIN {
+        // Terminal angosta: se le quita lugar a los datos.
+        total - fixed - INFO_MIN
+    } else {
+        0
+    }
+}
 
 /// Separación entre el icono y el bloque de datos.
 const GAP: u16 = 2;
@@ -103,7 +125,17 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
     if area.width <= info_x {
         return;
     }
-    let info = Rect::new(area.x + info_x, area.y, area.width - info_x, area.height);
+    let graphs = graph_width(area.width);
+    let info_width = if graphs > 0 {
+        area.width - info_x - GAP - graphs
+    } else {
+        area.width - info_x
+    };
+    let info = Rect::new(area.x + info_x, area.y, info_width, area.height);
+    if graphs > 0 {
+        let graph_area = Rect::new(area.x + area.width - graphs, area.y, graphs, area.height);
+        draw_graphs(buf, graph_area, app, state);
+    }
     let value_width = (info.width as usize).saturating_sub(LABEL_WIDTH);
 
     let threads: i64 = app.procs.iter().map(|p| p.threads).sum();
@@ -151,6 +183,79 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
     }
 }
 
+/// Escribe un título a la izquierda y, a la derecha, la primera de las
+/// notas atenuadas que entre en el espacio que queda.
+fn title_row(
+    buf: &mut Buffer,
+    area: Rect,
+    title: (String, Style),
+    notes: &[String],
+    note_style: Style,
+) {
+    let end = write_spans(buf, area, &[title]);
+    let right = area.x + area.width;
+    for note in notes {
+        let width = note.chars().count() as u16;
+        if right > end + width {
+            buf.set_string(right - width, area.y, note, note_style);
+            return;
+        }
+    }
+}
+
+/// Dibuja los gráficos de CPU (arriba) y RAM (abajo) de los últimos 2 minutos.
+fn draw_graphs(buf: &mut Buffer, area: Rect, app: &App, state: &State) {
+    if area.height < 4 {
+        return;
+    }
+    let theme = state.theme;
+    let empty = History::default();
+    let history = state.history.get(&app.id).unwrap_or(&empty);
+    let columns = area.width as usize * 2;
+    // Cada gráfico ocupa la mitad del alto: una fila de título y el resto de área.
+    let half = area.height / 2;
+    let plot_height = half - 1;
+
+    let cpu = history.resample(state.clock, columns, |p| p.cpu_pct as f64);
+    let cpu_peak = cpu.iter().flatten().fold(0.0f64, |a, b| a.max(*b));
+    let cpu_max = cpu_scale(cpu_peak);
+    let cpu_color = Style::default().fg(theme.load(app.cpu_pct));
+    title_row(
+        buf,
+        Rect::new(area.x, area.y, area.width, 1),
+        (
+            format!("CPU {:.1}%", app.cpu_pct),
+            cpu_color.add_modifier(Modifier::BOLD),
+        ),
+        &[
+            format!("tope {cpu_max:.0}% · 2 min"),
+            format!("tope {cpu_max:.0}%"),
+        ],
+        theme.dim(),
+    );
+    let plot = Rect::new(area.x, area.y + 1, area.width, plot_height);
+    draw_area(buf, plot, &cpu, cpu_max, cpu_color);
+
+    let ram = history.resample(state.clock, columns, |p| p.rss as f64);
+    let ram_peak = ram.iter().flatten().fold(0.0f64, |a, b| a.max(*b));
+    // Un 25 % de aire sobre el pico; mínimo 1 MiB para no dividir por cero.
+    let ram_max = (ram_peak * 1.25).max(1024.0 * 1024.0);
+    let ram_color = Style::default().fg(theme.rgb((187, 154, 247)));
+    let y = area.y + half;
+    title_row(
+        buf,
+        Rect::new(area.x, y, area.width, 1),
+        (
+            format!("RAM {}", human_bytes(app.rss)),
+            ram_color.add_modifier(Modifier::BOLD),
+        ),
+        &[format!("tope {}", human_bytes(ram_max as u64))],
+        theme.dim(),
+    );
+    let plot = Rect::new(area.x, y + 1, area.width, area.height - half - 1);
+    draw_area(buf, plot, &ram, ram_max, ram_color);
+}
+
 /// Dibuja el detalle de la app seleccionada.
 pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconStore) {
     let Some(app) = state.selected_app().cloned() else {
@@ -195,6 +300,19 @@ mod tests {
             Some(0.0),
             "nunca negativo"
         );
+    }
+
+    #[test]
+    fn graphs_get_the_spare_width_and_disappear_when_too_narrow() {
+        assert_eq!(
+            graph_width(80),
+            22,
+            "a 80 columnas se achica el bloque de datos"
+        );
+        assert_eq!(graph_width(100), 26);
+        assert_eq!(graph_width(140), 60, "nunca más que el máximo");
+        assert_eq!(graph_width(77), 0);
+        assert_eq!(graph_width(10), 0);
     }
 
     #[test]

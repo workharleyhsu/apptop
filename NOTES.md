@@ -125,3 +125,12 @@ Decisiones y problemas, por iteración.
   ↑ desde el primero vuelve a "toda la app". Lo usarán las acciones de la Fase 5.
 - Limitación conocida: un auxiliar reparentado con otro ejecutable (p. ej. `crashhelper` de
   Firefox lanzado desde una terminal) queda en el grupo de la terminal.
+
+## Iteración 16 — gráficos históricos
+- Se guarda historial (CPU %, RSS, con marca de tiempo) de TODAS las apps, no solo la abierta:
+  así el gráfico ya tiene datos al entrar. Ventana de 120 s por tiempo, no por cantidad de
+  muestras, para que valga con cualquier intervalo de refresco.
+- El gráfico siempre abarca 2 min: la ventana se reparte en 2 columnas de puntos por celda y
+  cada tramo toma el pico. A 80 columnas quedan 22 celdas (≈2.7 s por punto).
+- Eje de CPU = múltiplo de 100 % que contiene el pico; eje de RAM = pico + 25 %, desde 0.
+- Verificado en vivo bajo pty reconstruyendo la pantalla final con un emulador mínimo.
