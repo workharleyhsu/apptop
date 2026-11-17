@@ -227,10 +227,19 @@ cancela.
 apptop nunca se envía señales a sí mismo, y no pausa a la shell ni a la
 terminal que lo contienen.
 
+**Sin permiso.** Si algunos procesos rechazan una acción (son de otro usuario,
+o intentaste subirles la prioridad), apptop ofrece reintentar solo esos con
+`sudo` y antes muestra el comando exacto: `kill` o `renice` con los PIDs, nunca
+una shell. Si sudo necesita tu contraseña, la interfaz se aparta y sudo la pide
+en la terminal; Ctrl+C cancela. Después de aceptar la contraseña, apptop vuelve
+a comprobar que cada PID siga siendo el mismo proceso y regresa a la interfaz.
+apptop nunca corre como root, y el ofrecimiento solo aparece si `sudo` está
+instalado.
+
 **Sobre la prioridad.** Solo importa cuando la CPU está saturada: decide quién
 recibe tiempo de CPU cuando no alcanza para todos. Subir la prioridad de un
-proceso (bajar su nice) requiere privilegios, y apptop informa qué permiso
-falta. Por eso bajar la prioridad es un camino de ida para un usuario común:
+proceso (bajar su nice) requiere privilegios: apptop informa qué permiso
+falta y ofrece reintentar con `sudo`. Por eso bajar la prioridad es un camino de ida para un usuario común:
 para recuperarla hay que reiniciar la app.
 
 ## Línea de comandos

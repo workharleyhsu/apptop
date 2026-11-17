@@ -33,12 +33,16 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
     }
     match state.mode {
         Mode::Filter => return filter_key(state, key),
-        Mode::Confirm(_) => {
+        Mode::Confirm(_) | Mode::Elevate(_) => {
             // Confirman 'y' (yes) y 's' (sí), en cualquier idioma: quien
             // cambió de idioma no debería tener que reaprender la tecla.
             // Cualquier otra cancela.
             let yes = matches!(key.code, KeyCode::Char('s' | 'S' | 'y' | 'Y'));
-            state.answer_confirm(yes);
+            if matches!(state.mode, Mode::Elevate(_)) {
+                state.answer_elevate(yes);
+            } else {
+                state.answer_confirm(yes);
+            }
             return Outcome::Redraw;
         }
         Mode::Nice(_) => {

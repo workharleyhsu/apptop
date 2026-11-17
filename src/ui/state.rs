@@ -5,7 +5,8 @@ use std::time::Duration;
 use std::collections::HashMap;
 
 use crate::actions::{
-    filter_targets, needs_confirmation, Signal, Target, NICE_MAX, NICE_MIN, SIGNAL_MENU,
+    filter_targets, needs_confirmation, ElevateRequest, Elevated, Signal, Target, NICE_MAX,
+    NICE_MIN, SIGNAL_MENU,
 };
 use crate::apps::{App, AppKind, DetailData, Sample};
 use crate::collect::SystemStats;
@@ -125,6 +126,8 @@ pub enum Mode {
     Nice(NiceRequest),
     /// Eligiendo una señal del menú; el número es la fila del cursor.
     SignalMenu(usize),
+    /// Ofreciendo reintentar con sudo una acción rechazada por permisos.
+    Elevate(ElevateRequest),
 }
 
 /// Un cambio de prioridad en preparación o listo para aplicarse.
@@ -225,6 +228,10 @@ pub struct State {
     pub pending: Option<ActionRequest>,
     /// Cambio de prioridad confirmado que el bucle debe aplicar.
     pub pending_nice: Option<NiceRequest>,
+    /// Reintento con sudo aceptado que el bucle debe ejecutar.
+    pub pending_elevate: Option<ElevateRequest>,
+    /// Hay sudo y apptop no corre como root: se puede ofrecer el reintento.
+    pub can_elevate: bool,
     pub message: Option<Message>,
     /// Proceso elegido en el árbol del detalle; `None` = toda la app.
     pub proc_selected: Option<i32>,
@@ -265,6 +272,8 @@ impl State {
             lineage: Vec::new(),
             pending: None,
             pending_nice: None,
+            pending_elevate: None,
+            can_elevate: false,
             message: None,
             history: HashMap::new(),
             clock: 0.0,
@@ -681,6 +690,29 @@ impl State {
         if let Mode::Confirm(request) = std::mem::take(&mut self.mode) {
             if yes {
                 self.pending = Some(request);
+            } else {
+                self.notify(self.lang.t().cancelled, false);
+            }
+        }
+    }
+
+    /// Si una acción falló por permisos en `targets`, ofrece reintentarla
+    /// con sudo (cuando se puede y no hay otro diálogo abierto).
+    pub fn offer_elevation(&mut self, action: Elevated, targets: Vec<Target>, label: &str) {
+        if self.can_elevate && !targets.is_empty() && self.mode == Mode::Normal {
+            self.mode = Mode::Elevate(ElevateRequest {
+                action,
+                targets,
+                label: label.to_string(),
+            });
+        }
+    }
+
+    /// Respuesta al ofrecimiento de sudo.
+    pub fn answer_elevate(&mut self, yes: bool) {
+        if let Mode::Elevate(request) = std::mem::take(&mut self.mode) {
+            if yes {
+                self.pending_elevate = Some(request);
             } else {
                 self.notify(self.lang.t().cancelled, false);
             }

@@ -6,7 +6,7 @@ use ratatui::style::{Modifier, Style};
 
 use super::state::{ActionRequest, NiceRequest, State};
 use super::theme::Theme;
-use crate::actions::SIGNAL_MENU;
+use crate::actions::{ElevateRequest, Elevated, SIGNAL_MENU};
 
 /// Dibuja un cuadro centrado con borde, título y líneas de texto. El
 /// interior se limpia con espacios (sin color de fondo).
@@ -71,6 +71,28 @@ pub fn draw_confirm(buf: &mut Buffer, area: Rect, state: &State, request: &Actio
     lines.push((String::new(), theme.text()));
     lines.push((lang.t().yes_no.to_string(), theme.selected()));
     draw_box(buf, area, theme, request.title(lang), &lines);
+}
+
+/// Ofrecimiento de reintentar con sudo: a cuántos procesos se les negó la
+/// acción y el comando exacto que se ejecutará como root.
+pub fn draw_elevate(buf: &mut Buffer, area: Rect, state: &State, request: &ElevateRequest) {
+    let theme = state.theme;
+    let lang = state.lang;
+    let t = lang.t();
+    let mut lines = vec![
+        (
+            lang.elevate_question(request.targets.len(), &request.label),
+            theme.text().add_modifier(Modifier::BOLD),
+        ),
+        (t.elevate_retry.to_string(), theme.text()),
+        (format!("  {}", request.preview(4)), theme.dim()),
+    ];
+    if matches!(request.action, Elevated::Nice(_)) {
+        lines.push((format!("  {}", t.elevate_threads), theme.dim()));
+    }
+    lines.push((String::new(), theme.text()));
+    lines.push((t.yes_no.to_string(), theme.selected()));
+    draw_box(buf, area, theme, t.title_elevate, &lines);
 }
 
 /// Menú de señales: una por fila, con el cursor marcado.

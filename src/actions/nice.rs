@@ -11,7 +11,7 @@ pub const NICE_MIN: i32 = -20;
 pub const NICE_MAX: i32 = 19;
 
 /// Resultado de cambiar la prioridad de varios procesos.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct NiceReport {
     pub changed: usize,
     pub vanished: usize,
@@ -20,6 +20,9 @@ pub struct NiceReport {
     /// El proceso es de otro usuario.
     pub not_owner: usize,
     pub failed: usize,
+    /// Los procesos que fallaron por permisos (`needs_privilege` y
+    /// `not_owner`): se pueden reintentar con sudo.
+    pub denied_targets: Vec<Target>,
 }
 
 /// Motivo por el que falló `setpriority`, según `errno`.
@@ -72,7 +75,7 @@ impl NiceReport {
 
 /// Hilos de un proceso. En Linux `nice` es por hilo: para cambiar la
 /// prioridad del proceso entero hay que recorrerlos todos.
-fn thread_ids(root: &Path, pid: i32) -> Vec<i32> {
+pub(crate) fn thread_ids(root: &Path, pid: i32) -> Vec<i32> {
     let mut ids: Vec<i32> = fs::read_dir(root.join(pid.to_string()).join("task"))
         .map(|dir| {
             dir.flatten()
@@ -80,6 +83,7 @@ fn thread_ids(root: &Path, pid: i32) -> Vec<i32> {
                 .collect()
         })
         .unwrap_or_default();
+    ids.sort_unstable();
     if ids.is_empty() {
         ids.push(pid);
     }
@@ -128,7 +132,12 @@ pub fn set_nice_in(root: &Path, targets: &[Target], value: i32) -> NiceReport {
         }
         match error {
             None => report.changed += 1,
-            Some(error) => report.record(error),
+            Some(error) => {
+                if matches!(error, NiceError::NeedsPrivilege | NiceError::NotOwner) {
+                    report.denied_targets.push(*target);
+                }
+                report.record(error);
+            }
         }
     }
     report

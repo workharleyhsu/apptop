@@ -134,7 +134,7 @@ pub fn hints(state: &State) -> Vec<Hint> {
                 Hint::new("←↑↓→", t.hint_move, 1),
             ]
         }
-        Mode::Confirm(_) => {
+        Mode::Confirm(_) | Mode::Elevate(_) => {
             return vec![
                 Hint::new(t.yes_key, t.hint_confirm, 9),
                 Hint::new("n/Esc", t.hint_cancel, 9),

@@ -67,6 +67,7 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
         Mode::Confirm(request) => dialog::draw_confirm(buf, body, state, request),
         Mode::Nice(request) => dialog::draw_nice(buf, body, state, request),
         Mode::SignalMenu(cursor) => dialog::draw_signal_menu(buf, body, state, *cursor),
+        Mode::Elevate(request) => dialog::draw_elevate(buf, body, state, request),
         Mode::Normal | Mode::Filter => {}
     }
 }
@@ -411,6 +412,41 @@ mod tests {
         assert!(text.contains("Send SIGTERM to Firefox?"));
         assert!(text.contains("2 processes affected"));
         assert!(text.contains("[y] yes     [n] no"));
+    }
+
+    #[test]
+    fn elevate_dialog_snapshot_shows_the_exact_command() {
+        use crate::actions::{Elevated, Signal, Target};
+        let mut state = detail_state();
+        let denied = vec![
+            Target {
+                pid: 4100,
+                starttime: 1,
+            },
+            Target {
+                pid: 4130,
+                starttime: 1,
+            },
+        ];
+        // Sin sudo disponible no se ofrece nada.
+        state.offer_elevation(Elevated::Signal(Signal::SIGKILL), denied.clone(), "Firefox");
+        assert_eq!(state.mode, Mode::Normal);
+        state.can_elevate = true;
+        state.offer_elevation(Elevated::Signal(Signal::SIGKILL), denied, "Firefox");
+        let text = render_to_text(80, 24, &mut state, &mut test_store());
+        insta::assert_snapshot!(text);
+        assert!(text.contains("No permission for 2 processes of Firefox."));
+        assert!(text.contains("sudo kill -s KILL -- 4100 4130"));
+        // Solo 's'/'y' aceptan; cualquier otra tecla cancela.
+        let request = match &state.mode {
+            Mode::Elevate(request) => request.clone(),
+            other => panic!("{other:?}"),
+        };
+        state.answer_elevate(false);
+        assert!(state.pending_elevate.is_none() && state.mode == Mode::Normal);
+        state.mode = Mode::Elevate(request.clone());
+        state.answer_elevate(true);
+        assert_eq!(state.pending_elevate.take(), Some(request));
     }
 
     #[test]

@@ -166,10 +166,19 @@ In dialogs only `y` confirms (`s` also works); any other key cancels.
 apptop never signals itself, and it will not pause the shell or the terminal
 it runs in.
 
+**Without permission.** If some processes reject an action (they belong to
+another user, or you tried to raise their priority), apptop offers to retry
+just those with `sudo`, and shows the exact command first: `kill` or `renice`
+with the PIDs, never a shell. If sudo needs your password, the interface steps
+aside and sudo asks for it in the terminal; Ctrl+C cancels. apptop checks
+again that each PID is still the same process after the password is accepted,
+then comes back. apptop itself never runs as root, and the offer only appears
+when `sudo` is installed.
+
 **About priority.** It only matters when the CPU is saturated: it decides who
 gets CPU time when there is not enough for everyone. Raising a process's
-priority (lowering its nice value) requires privileges, and apptop tells you
-which permission is missing. That also means lowering priority is one-way for a
+priority (lowering its nice value) requires privileges: apptop tells you
+which permission is missing and offers to retry with `sudo`. That also means lowering priority is one-way for a
 regular user: to get it back you have to restart the app.
 
 ## Command line

@@ -19,7 +19,7 @@ pub struct Target {
 }
 
 /// Resultado de enviar una señal a varios procesos.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SignalReport {
     /// Procesos que recibieron la señal.
     pub delivered: usize,
@@ -29,6 +29,9 @@ pub struct SignalReport {
     pub denied: usize,
     /// Otros errores.
     pub failed: usize,
+    /// Los procesos que rechazaron la señal por permisos: se pueden
+    /// reintentar con sudo.
+    pub denied_targets: Vec<Target>,
 }
 
 impl SignalReport {
@@ -157,7 +160,10 @@ pub fn send_signal_in(root: &Path, targets: &[Target], signal: Signal) -> Signal
         match kill(Pid::from_raw(target.pid), signal) {
             Ok(()) => report.delivered += 1,
             Err(Errno::ESRCH) => report.vanished += 1,
-            Err(Errno::EPERM) => report.denied += 1,
+            Err(Errno::EPERM) => {
+                report.denied += 1;
+                report.denied_targets.push(*target);
+            }
             Err(_) => report.failed += 1,
         }
     }
@@ -229,7 +235,8 @@ mod tests {
                 delivered: 0,
                 vanished: 1,
                 denied: 0,
-                failed: 3
+                failed: 3,
+                denied_targets: Vec::new(),
             }
         );
         assert!(report.is_problem());
@@ -268,6 +275,7 @@ mod tests {
             vanished: 2,
             denied: 3,
             failed: 0,
+            ..Default::default()
         };
         assert_eq!(
             mixed.summary(Lang::En, Signal::SIGKILL, "x"),

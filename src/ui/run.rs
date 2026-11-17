@@ -6,11 +6,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
+use ratatui::crossterm::cursor::{Hide, Show};
 use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture};
 use ratatui::crossterm::execute;
+use ratatui::crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
 use ratatui::DefaultTerminal;
 
-use crate::actions::{ancestry, send_signal, set_nice};
+use crate::actions::{ancestry, elevate, send_signal, set_nice, ElevateOutcome, Elevated};
 use crate::apps::Sampler;
 use crate::config::{ColorMode, Config};
 use crate::i18n::Lang;
@@ -90,8 +92,16 @@ impl RunOptions {
 /// ordenadamente y la terminal queda restaurada.
 static TERMINATE: AtomicBool = AtomicBool::new(false);
 
-extern "C" fn on_terminate(_signal: libc::c_int) {
-    // Solo una escritura atómica: es lo único seguro dentro de un manejador.
+/// `true` mientras la interfaz está suspendida para que sudo pida la
+/// contraseña: un Ctrl+C ahí cancela sudo, no cierra apptop.
+static SUSPENDED: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn on_terminate(signal: libc::c_int) {
+    // Solo lecturas y escrituras atómicas: es lo único seguro dentro de un
+    // manejador.
+    if signal == libc::SIGINT && SUSPENDED.load(Ordering::Relaxed) {
+        return;
+    }
     TERMINATE.store(true, Ordering::Relaxed);
 }
 
@@ -102,8 +112,10 @@ fn install_signal_handlers() {
         SaFlags::empty(),
         SigSet::empty(),
     );
+    // Es un manejador y no SIG_IGN: al ejecutar sudo vuelve al
+    // comportamiento por defecto, así Ctrl+C sí le llega a sudo.
     for signal in [Signal::SIGTERM, Signal::SIGHUP, Signal::SIGINT] {
-        // SAFETY: el manejador solo escribe un AtomicBool (async-signal-safe).
+        // SAFETY: el manejador solo usa AtomicBool (async-signal-safe).
         let _ = unsafe { sigaction(signal, &action) };
     }
 }
@@ -111,8 +123,43 @@ fn install_signal_handlers() {
 /// Deja la terminal como estaba: sin captura de mouse, fuera de la pantalla
 /// alternativa y del modo crudo. Se puede llamar más de una vez.
 fn restore_terminal() {
-    let _ = execute!(stdout(), DisableMouseCapture);
+    let _ = execute!(stdout(), DisableMouseCapture, Show);
     ratatui::restore();
+}
+
+/// Ejecuta un reintento con sudo. Si hace falta la contraseña, deja la
+/// terminal en modo normal, muestra el comando y deja que sudo pregunte;
+/// después vuelve a la interfaz.
+fn run_elevated(
+    terminal: &mut DefaultTerminal,
+    request: &elevate::ElevateRequest,
+    lang: Lang,
+) -> io::Result<ElevateOutcome> {
+    let authorized = if elevate::has_cached_credentials() {
+        true
+    } else {
+        SUSPENDED.store(true, Ordering::Relaxed);
+        restore_terminal();
+        let t = lang.t();
+        println!(
+            "\n{}\n\n  {}\n\n{}\n",
+            t.elevate_banner,
+            request.command_line(),
+            t.elevate_cancel_hint
+        );
+        let authorized = elevate::authenticate();
+        // La interfaz vuelve igual si sudo falló o se canceló.
+        enable_raw_mode()?;
+        execute!(stdout(), EnterAlternateScreen, EnableMouseCapture, Hide)?;
+        terminal.clear()?;
+        SUSPENDED.store(false, Ordering::Relaxed);
+        authorized
+    };
+    Ok(if authorized {
+        elevate::execute(request)
+    } else {
+        ElevateOutcome::NotAuthorized
+    })
 }
 
 /// Ante un panic, primero se restaura la terminal y después se imprime el
@@ -141,6 +188,7 @@ fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Resul
     let mut store = options.new_store();
     let mut state = options.new_state();
     state.lineage = ancestry(Path::new("/proc"), std::process::id() as i32);
+    state.can_elevate = elevate::can_elevate();
 
     // La primera muestra con CPU % necesita un intervalo; se muestra antes
     // una sin porcentajes para no arrancar con la pantalla vacía.
@@ -185,6 +233,11 @@ fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Resul
                     report.summary(state.lang, request.signal, &request.label),
                     report.is_problem(),
                 );
+                state.offer_elevation(
+                    Elevated::Signal(request.signal),
+                    report.denied_targets,
+                    &request.label,
+                );
                 // Refresca pronto para reflejar el efecto de la señal.
                 next_sample = Instant::now() + Duration::from_millis(150);
                 dirty = true;
@@ -195,6 +248,17 @@ fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Resul
                     report.summary(state.lang, request.value, &request.label),
                     report.is_problem(),
                 );
+                state.offer_elevation(
+                    Elevated::Nice(request.value),
+                    report.denied_targets,
+                    &request.label,
+                );
+                next_sample = Instant::now() + Duration::from_millis(150);
+                dirty = true;
+            }
+            if let Some(request) = state.pending_elevate.take() {
+                let outcome = run_elevated(terminal, &request, state.lang)?;
+                state.notify(outcome.summary(state.lang, &request), outcome.is_problem());
                 next_sample = Instant::now() + Duration::from_millis(150);
                 dirty = true;
             }

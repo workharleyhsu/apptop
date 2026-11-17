@@ -126,6 +126,14 @@ pub struct Texts {
     pub nice_one_way_2: &'static str,
     // Avisos.
     pub cancelled: &'static str,
+    // Reintento con sudo.
+    pub title_elevate: &'static str,
+    pub elevate_retry: &'static str,
+    pub elevate_threads: &'static str,
+    pub elevate_banner: &'static str,
+    pub elevate_cancel_hint: &'static str,
+    pub sudo_not_authorized: &'static str,
+    pub sudo_all_vanished: &'static str,
     pub would_affect_apptop: &'static str,
     // Terminal chica.
     pub too_small: &'static str,
@@ -231,6 +239,13 @@ pub const EN: Texts = Texts {
     nice_one_way_1: "Without root you cannot go back to a lower value:",
     nice_one_way_2: "restart the app to regain its priority",
     cancelled: "Cancelled",
+    title_elevate: "Permission denied",
+    elevate_retry: "Retry as root with sudo? It will run:",
+    elevate_threads: "(on every thread of those processes)",
+    elevate_banner: "apptop needs root to run:",
+    elevate_cancel_hint: "Nothing runs until sudo accepts the password. Ctrl+C cancels.",
+    sudo_not_authorized: "sudo: password not accepted or cancelled; nothing was changed",
+    sudo_all_vanished: "sudo: nothing to do, the processes had already exited",
     would_affect_apptop: "Not possible: it would affect apptop itself or its terminal",
     too_small: "Terminal too small",
     too_small_hint: "Enlarge the window (q to quit)",
@@ -334,6 +349,13 @@ pub const ES: Texts = Texts {
     nice_one_way_1: "Sin root no se puede volver a un valor menor:",
     nice_one_way_2: "para recuperar la prioridad hay que reiniciar la app",
     cancelled: "Cancelado",
+    title_elevate: "Sin permiso",
+    elevate_retry: "¿Reintentar como root con sudo? Se ejecutará:",
+    elevate_threads: "(en todos los hilos de esos procesos)",
+    elevate_banner: "apptop necesita root para ejecutar:",
+    elevate_cancel_hint: "No se ejecuta nada hasta que sudo acepte la contraseña. Ctrl+C cancela.",
+    sudo_not_authorized: "sudo: contraseña no aceptada o cancelada; no se cambió nada",
+    sudo_all_vanished: "sudo: nada que hacer, los procesos ya habían terminado",
     would_affect_apptop: "No se puede: afectaría al propio apptop o a su terminal",
     too_small: "Terminal demasiado chica",
     too_small_hint: "Agrandá la ventana (q para salir)",
@@ -384,6 +406,14 @@ impl Lang {
             (Lang::En, n) => format!("{n} processes"),
             (Lang::Es, 1) => "1 proceso".to_string(),
             (Lang::Es, n) => format!("{n} procesos"),
+        }
+    }
+
+    /// Primera línea del diálogo que ofrece reintentar con sudo.
+    pub fn elevate_question(self, count: usize, label: &str) -> String {
+        match self {
+            Lang::En => format!("No permission for {} of {label}.", self.processes(count)),
+            Lang::Es => format!("Sin permiso para {} de {label}.", self.processes(count)),
         }
     }
 

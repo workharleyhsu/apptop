@@ -1,0 +1,28 @@
+---
+source: src/ui/mod.rs
+expression: text
+---
+apptop  CPU n/a  RAM n/a  Swap n/a                    ⟳ 1s · 3 apps · 2 services
+                          Firefox                           CPU 23.5%   max 100%
+⢀⠔⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠢⡀  application · app                            ⢸⣿⡇
+⢸ ⢰⡋⢙⡆⢸⠉⢹ ⣞⠉⣳          ⡇                                               ⢸⣿⡇
+⢸⣀⣀⣉⣉⣀⣈⣉⣉⣀⣈⣉⣁⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇  User       ana                               ⢸⣿⡇     ⣀
+⢸                      ⡇  Uptime     2h 03m                            ⢸⣿⣇⣤⣴⣶⣾⣿⣿
+⢸                      ⡇  Processes  3 · 172 threads             ⣀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⢸                      ⡇  PIDs       4100 4130 4222         RAM 5.3G    max 6.6G
+⢸                ╭─ Permission denied ───────────────────────╮
+⢸                │ No permission for 2 processes of Firefox. │     ⢀⣀⣀⣀⣤⣤⣤⣤⣶⣶⣶⣾⣿
+⢸                │ Retry as root with sudo? It will run:     │   ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⠈⠢⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤│   sudo kill -s KILL -- 4100 4130          │   ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+                 │                                           │   ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+                 │ [y] yes     [n] no                        │
+     PID  PROCESS╰───────────────────────────────────────────╯M   THR  STATE
+    4100  firefox                                   1.5    900M   120  S asleep
+    4130  ├─ firefox -contentproc -isForBrowser…    1.5    400M    30  S asleep
+    4222  └─ firefox                               97.2    250M    22  T stopped
+
+
+
+
+
+y confirm  n/Esc cancel
