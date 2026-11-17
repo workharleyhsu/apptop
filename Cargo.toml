@@ -8,6 +8,7 @@ authors = ["HarleyHsu <270751439+workharleyhsu@users.noreply.github.com>"]
 repository = "https://github.com/workharleyhsu/apptop"
 homepage = "https://github.com/workharleyhsu/apptop"
 readme = "README.md"
+exclude = ["docs/screenshots/"]
 keywords = ["tui", "monitor", "process", "terminal", "linux"]
 categories = ["command-line-utilities"]
 

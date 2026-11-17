@@ -17,7 +17,17 @@ No necesita root: lo que no se puede leer se muestra como `n/d`.
 
 ## Capturas
 
-Las capturas están en español (`--lang es`).
+La grilla. Las apps con icono lo dibujan en su color; el resto usa una ventana
+genérica y los servicios un engranaje:
+
+![Grilla de apptop con iconos de apps y servicios](docs/screenshots/grid.png)
+
+Dentro de una app: sus datos, gráficos de CPU y RAM y su árbol de procesos:
+
+![Vista de detalle de Firefox en apptop](docs/screenshots/detail.png)
+
+Las mismas vistas en texto, sacadas de los tests de snapshot. Están en español
+(`--lang es`).
 
 Grilla (80×24). Las apps sin icono usan una ventana genérica y los servicios
 un engranaje:

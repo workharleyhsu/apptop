@@ -17,14 +17,16 @@ It does not need root: whatever cannot be read is shown as `n/a`.
 
 ## Screenshots
 
-Grid (80×24). Apps without an icon get a generic window, services a gear:
+The grid. Apps with an icon draw it in its colour; the rest get a generic
+window, and services a gear:
 
-```img
-<img width="868" height="1087" alt="image" src="https://github.com/user-attachments/assets/f888eca5-5c32-4414-bf6d-eb47fdac79d3" />
+![apptop grid with app icons and services](docs/screenshots/grid.png)
 
-```
+Inside an app: its details, CPU and RAM graphs, and its process tree:
 
-Detail view of an app (80×24):
+![apptop detail view of Firefox](docs/screenshots/detail.png)
+
+The detail view as text (80×24), from the snapshot tests:
 
 ```text
 apptop  CPU n/a  RAM n/a  Swap n/a                    ⟳ 1s · 3 apps · 2 services
