@@ -262,3 +262,9 @@ Medido bajo pty (140×40, ~410 procesos, 88 apps/servicios), build release:
 - `--snapshot` tarda ~0.29 s por diseño: espera 250 ms entre dos muestras para tener CPU %.
 - Test `a_sample_is_cheap`: red de seguridad (una muestra < 100 ms; real ≈ 5 ms).
 - De paso: una GPU con todos los motores en 0 ya no muestra un nombre de motor al azar.
+
+## Iteración 29 — README
+- Las capturas del README salen de los snapshots de los tests (datos ficticios, estables) y
+  de `--dump-icon`; no contienen datos de la máquina de desarrollo.
+- Incluye instalación, atajos por vista, línea de comandos, configuración, cómo funciona y
+  una sección de limitaciones (red aproximada, permisos, AMD sin verificar en hardware).

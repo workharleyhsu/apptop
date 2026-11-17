@@ -43,7 +43,7 @@
 - [x] Manejo de resize, terminales chicas (mensaje si es menor a 80x24) y restauración
       de la terminal ante panic.
 - [x] Rendimiento: medir y optimizar hasta cumplir los criterios.
-- [ ] README con capturas en texto, atajos e instalación.
+- [x] README con capturas en texto, atajos e instalación.
 
 ## Criterios de aceptación
 - [ ] `cargo clippy -- -D warnings` y `cargo test` pasan limpios.
