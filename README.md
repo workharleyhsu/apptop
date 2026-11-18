@@ -118,7 +118,8 @@ Do not run apptop with `sudo`: it is not needed, and as root the actions would
 reach every process on the system.
 
 The icons need a font with braille glyphs and look best in a terminal with
-24-bit colour (otherwise they fall back to 256 colours). The minimum size is
+24-bit colour (otherwise they fall back to 256 or 16 colours, or to none with
+`NO_COLOR`). The minimum size is
 80×24.
 
 ## Keys
@@ -133,6 +134,7 @@ The icons need a font with braille glyphs and look best in a terminal with
 | `/` | Filter by text (name, id or the name of any of its processes) |
 | `s` | Cycle the sort order: name → CPU → RAM |
 | `Tab` | Show all → apps only → services only |
+| `T` | Choose a colour theme (live preview) |
 | `Esc` | Clear the filter |
 | `q` / `Ctrl+C` | Quit |
 
@@ -214,8 +216,10 @@ icon_size = "large"    # small (8x4) | medium (12x6) | large (16x8)
 language = "en"        # en | es
 
 [theme]
+name = "apptop"        # colour theme; `T` picks one and saves it here
 color = "auto"         # auto | truecolor | 256 | 16
-accent = "#7aa2f7"     # colour of the selection and the shortcuts
+icon_mode = "app"      # app | tint | mono; defaults to the theme's own
+accent = "#7aa2f7"     # replaces the theme's accent colour
 icons = "breeze"       # icon theme; defaults to the desktop's
 ```
 
@@ -223,6 +227,34 @@ An invalid value or an unknown key produces a warning and the default is used;
 they never prevent apptop from starting.
 
 The interface is in English by default and also available in Spanish.
+
+## Themes
+
+Press `T` (in the grid or in the detail view) to open the theme picker: the
+arrows preview each theme on the whole screen, typing filters the list,
+`Enter` keeps the theme and saves it in the configuration file, and `Esc`
+goes back to the one you had.
+
+There are 32 themes in five families: the default (`apptop`, which keeps your
+terminal's own background and text colour), popular ones (Catppuccin,
+Dracula, Everforest, Gruvbox, Kanagawa, Monokai, Nord, One Dark, Rosé Pine,
+Solarized, Tokyo Night), light and pastel, retro and neon (green phosphor,
+amber, grey, cyberpunk, synthwave) and accessible (high contrast, and
+Okabe-Ito palettes for colour blindness).
+
+Each theme also says how icons are coloured, and `icon_mode` in the
+configuration overrides it:
+
+| `icon_mode` | Icons |
+|---|---|
+| `app` | Each one in the dominant colour of the real app icon |
+| `tint` | Each one in the theme colour closest to its own |
+| `mono` | All in one colour |
+
+Themes are shared with [ramas](https://github.com/workharleyhsu/ramas)
+through the [tui-themes](https://github.com/workharleyhsu/tui-themes) crate.
+To make your own, drop a TOML file in `~/.config/tui-themes/themes/`: see
+[the theme guide](https://github.com/workharleyhsu/tui-themes/blob/main/docs/THEMES.md). A broken theme file only shows a notice.
 
 ## How it works
 

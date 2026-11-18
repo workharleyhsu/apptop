@@ -54,3 +54,14 @@
 - [x] Todas las tareas marcadas o justificadas como `[BLOQUEADA]`. (28 de 28 marcadas, ninguna bloqueada)
 
 LOOP COMPLETO
+
+## Temas compartidos (2026-11-18)
+
+Trabajo posterior al loop, hecho junto con ramas. El plan, las tareas y las decisiones
+están en `../tui-themes/THEMES_PROGRESS.md`; el detalle de lo que cambió en apptop, en
+la sección "Temas compartidos" de `NOTES.md`.
+
+- [x] Colores tomados del crate `tui-themes`, sin cambio visual con el tema de fábrica.
+- [x] Selector de temas con `T` y vista previa en vivo.
+- [x] Tema guardado en `[theme] name`; temas del usuario en `~/.config/tui-themes/themes/`.
+- [x] `icon_mode`: `app`, `tint` o `mono`.

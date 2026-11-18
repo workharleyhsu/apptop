@@ -179,7 +179,8 @@ No ejecutes apptop con `sudo`: no hace falta, y como root las acciones
 afectarían a procesos de todo el sistema.
 
 Para ver bien los iconos hace falta una fuente con braille y una terminal con
-color de 24 bits (si no, se degrada a 256 colores). El tamaño mínimo es 80×24.
+color de 24 bits (si no, se degrada a 256 o 16 colores, o a ninguno con
+`NO_COLOR`). El tamaño mínimo es 80×24.
 
 ## Atajos
 
@@ -193,6 +194,7 @@ color de 24 bits (si no, se degrada a 256 colores). El tamaño mínimo es 80×24
 | `/` | Filtrar por texto (nombre, id o nombre de algún proceso) |
 | `s` | Cambiar el orden: nombre → CPU → RAM |
 | `Tab` | Ver todo → solo apps → solo servicios |
+| `T` | Elegir un tema de colores (vista previa en vivo) |
 | `Esc` | Quitar el filtro |
 | `q` / `Ctrl+C` | Salir |
 
@@ -275,13 +277,43 @@ icon_size = "large"    # small (8x4) | medium (12x6) | large (16x8)
 language = "es"        # en (por defecto) | es
 
 [theme]
+name = "apptop"        # tema de colores; `T` elige uno y lo guarda acá
 color = "auto"         # auto | truecolor | 256 | 16
-accent = "#7aa2f7"     # color de la selección y los atajos
+icon_mode = "app"      # app | tint | mono; por defecto, el del tema
+accent = "#7aa2f7"     # reemplaza el color de acento del tema
 icons = "breeze"       # tema de iconos; por defecto, el del escritorio
 ```
 
 Un valor inválido o una clave desconocida producen una advertencia y se usa el
 valor por defecto; nunca impiden arrancar.
+
+## Temas
+
+`T` (en la grilla o en el detalle) abre el selector de temas: las flechas
+muestran cada tema en toda la pantalla, escribir filtra la lista, `Enter`
+deja el tema y lo guarda en la configuración, y `Esc` vuelve al que tenías.
+
+Hay 32 temas en cinco familias: el de fábrica (`apptop`, que conserva el
+fondo y el color de texto de tu terminal), populares (Catppuccin, Dracula,
+Everforest, Gruvbox, Kanagawa, Monokai, Nord, One Dark, Rosé Pine, Solarized,
+Tokyo Night), claros y pastel, retro y neón (fósforo verde, ámbar, gris,
+cyberpunk, synthwave) y accesibles (alto contraste, y paletas Okabe-Ito para
+daltonismo).
+
+Cada tema dice además cómo se colorean los iconos, y `icon_mode` en la
+configuración lo impone:
+
+| `icon_mode` | Iconos |
+|---|---|
+| `app` | Cada uno con el color dominante del icono real de la app |
+| `tint` | Cada uno con el color del tema más parecido al suyo |
+| `mono` | Todos del mismo color |
+
+Los temas se comparten con [ramas](https://github.com/workharleyhsu/ramas)
+mediante el crate [tui-themes](https://github.com/workharleyhsu/tui-themes).
+Para crear el tuyo, deja un archivo TOML en `~/.config/tui-themes/themes/`:
+mira [la guía de temas](https://github.com/workharleyhsu/tui-themes/blob/main/docs/THEMES.es.md). Un archivo de tema roto solo muestra
+un aviso.
 
 ## Cómo funciona
 
