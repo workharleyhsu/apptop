@@ -306,7 +306,7 @@ fn dump_icon(target: &str, size: (u16, u16), color: &str, options: &RunOptions) 
         _ => std::io::stdout().is_terminal(),
     };
     if colored {
-        print!("{}", icon.to_ansi(options.theme.truecolor));
+        print!("{}", icon.to_ansi(options.theme.truecolor()));
     } else {
         print!("{}", icon.to_plain());
     }

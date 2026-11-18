@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
+use ratatui::style::Modifier;
 
 use crate::apps::App;
 use crate::collect::ProcInfo;
@@ -158,7 +158,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, app: &App, state: &mut State) {
     if area.height == 0 || area.width == 0 {
         return;
     }
-    let theme = state.theme;
+    let theme = state.theme.clone();
     let lang = state.lang;
     let t = lang.t();
     let width = area.width as usize;
@@ -218,8 +218,8 @@ pub fn draw(buf: &mut Buffer, area: Rect, app: &App, state: &mut State) {
             .collect();
 
         let state_style = match proc.state {
-            'T' | 't' => Style::default().fg(theme.load(50.0)),
-            'Z' | 'X' | 'x' => Style::default().fg(theme.load(100.0)),
+            'T' | 't' => theme.load(50.0),
+            'Z' | 'X' | 'x' => theme.load(100.0),
             _ => theme.dim(),
         };
         let spans = [
@@ -228,10 +228,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, app: &App, state: &mut State) {
             (name, base.add_modifier(Modifier::BOLD)),
             (shown_args, theme.dim()),
             (" ".repeat(pad), theme.text()),
-            (
-                format!("{:>7.1}", proc.cpu_pct),
-                Style::default().fg(theme.load(proc.cpu_pct)),
-            ),
+            (format!("{:>7.1}", proc.cpu_pct), theme.load(proc.cpu_pct)),
             (format!("{:>8}", human_bytes(proc.rss)), base),
             (format!("{:>6}", proc.threads), base),
             (

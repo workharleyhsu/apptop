@@ -11,7 +11,7 @@
 //! language = "en"        # en | es
 //!
 //! [theme]
-//! color = "auto"         # auto | truecolor | 256
+//! color = "auto"         # auto | truecolor | 256 | 16
 //! accent = "#7aa2f7"     # color de selección y atajos
 //! icons = "breeze"       # tema de iconos; por defecto, el del escritorio
 //! ```
@@ -69,6 +69,7 @@ pub enum ColorMode {
     Auto,
     Truecolor,
     Palette256,
+    Palette16,
 }
 
 impl ColorMode {
@@ -77,6 +78,7 @@ impl ColorMode {
             "auto" => Some(ColorMode::Auto),
             "truecolor" | "24bit" | "rgb" => Some(ColorMode::Truecolor),
             "256" | "256color" | "ansi256" => Some(ColorMode::Palette256),
+            "16" | "16color" | "ansi16" => Some(ColorMode::Palette16),
             _ => None,
         }
     }
@@ -86,6 +88,7 @@ impl ColorMode {
             ColorMode::Auto => "auto",
             ColorMode::Truecolor => "truecolor",
             ColorMode::Palette256 => "256",
+            ColorMode::Palette16 => "16",
         }
     }
 }
@@ -318,11 +321,12 @@ impl Config {
                     None => warnings.push(Warning::Expected(
                         full,
                         text.clone(),
-                        "auto, truecolor, 256",
+                        "auto, truecolor, 256, 16",
                     )),
                 },
                 // `color = 256` sin comillas también vale.
                 ("color", Value::Integer(256)) => self.color = ColorMode::Palette256,
+                ("color", Value::Integer(16)) => self.color = ColorMode::Palette16,
                 ("accent", Value::String(text)) => match parse_hex_color(text) {
                     Some(rgb) => self.accent = Some(rgb),
                     None => warnings.push(Warning::Expected(full, text.clone(), "#rrggbb")),

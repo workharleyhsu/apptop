@@ -187,7 +187,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
         None => 0,
     };
     let scroll = state.scroll;
-    let theme = state.theme;
+    let theme = state.theme.clone();
 
     if layout.tiles.is_empty() {
         let message = if state.filter.is_empty() {
@@ -227,7 +227,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
         };
         let is_selected = selected == Some(tile.index);
         let icon = icon_for(app, store, state.icon_size);
-        let icon_style = Style::default().fg(theme.rgb(icon.color));
+        let icon_style = theme.icon(icon.color);
         for (row, line) in icon.rows().iter().enumerate() {
             put(
                 buf,
@@ -259,7 +259,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
         // Una app pausada no consume CPU: se avisa en lugar del resumen.
         if app_is_paused(app) {
             let label = fit_center(state.lang.t().paused, icon_w as usize);
-            let style = Style::default().fg(theme.load(50.0));
+            let style = theme.load(50.0);
             let y = tile.y + icon_h + 1;
             put(buf, area, scroll, tile.x + SIDE_PAD, y, &label, style);
         } else {
@@ -275,7 +275,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, state: &mut State, store: &mut IconSto
                 start,
                 stats_y,
                 &cpu,
-                Style::default().fg(theme.load(app.cpu_pct)),
+                theme.load(app.cpu_pct),
             );
             let ram_x = start + cpu.chars().count() as u16 + 1;
             put(buf, area, scroll, ram_x, stats_y, &ram, theme.dim());

@@ -13,7 +13,7 @@ use crate::actions::{ElevateRequest, Elevated, SIGNAL_MENU};
 pub fn draw_box(
     buf: &mut Buffer,
     area: Rect,
-    theme: Theme,
+    theme: &Theme,
     title: &str,
     lines: &[(String, Style)],
 ) {
@@ -26,7 +26,7 @@ pub fn draw_box(
     }
     let x = area.x + (area.width - width) / 2;
     let y = area.y + (area.height - height) / 2;
-    let border = Style::default().fg(theme.accent());
+    let border = theme.accent();
     let span = (width - 2) as usize;
 
     let label = format!(" {title} ");
@@ -56,7 +56,7 @@ pub fn draw_box(
 /// Diálogo de confirmación de una señal: muestra el nombre y cuántos
 /// procesos se ven afectados.
 pub fn draw_confirm(buf: &mut Buffer, area: Rect, state: &State, request: &ActionRequest) {
-    let theme = state.theme;
+    let theme = state.theme.clone();
     let lang = state.lang;
     let mut lines = vec![
         (
@@ -70,13 +70,13 @@ pub fn draw_confirm(buf: &mut Buffer, area: Rect, state: &State, request: &Actio
     }
     lines.push((String::new(), theme.text()));
     lines.push((lang.t().yes_no.to_string(), theme.selected()));
-    draw_box(buf, area, theme, request.title(lang), &lines);
+    draw_box(buf, area, &theme, request.title(lang), &lines);
 }
 
 /// Ofrecimiento de reintentar con sudo: a cuántos procesos se les negó la
 /// acción y el comando exacto que se ejecutará como root.
 pub fn draw_elevate(buf: &mut Buffer, area: Rect, state: &State, request: &ElevateRequest) {
-    let theme = state.theme;
+    let theme = state.theme.clone();
     let lang = state.lang;
     let t = lang.t();
     let mut lines = vec![
@@ -92,12 +92,12 @@ pub fn draw_elevate(buf: &mut Buffer, area: Rect, state: &State, request: &Eleva
     }
     lines.push((String::new(), theme.text()));
     lines.push((t.yes_no.to_string(), theme.selected()));
-    draw_box(buf, area, theme, t.title_elevate, &lines);
+    draw_box(buf, area, &theme, t.title_elevate, &lines);
 }
 
 /// Menú de señales: una por fila, con el cursor marcado.
 pub fn draw_signal_menu(buf: &mut Buffer, area: Rect, state: &State, cursor: usize) {
-    let theme = state.theme;
+    let theme = state.theme.clone();
     let lang = state.lang;
     let target = match state.action_scope() {
         Some((targets, label, _)) => format!("{label} · {}", lang.affected(targets.len())),
@@ -121,12 +121,12 @@ pub fn draw_signal_menu(buf: &mut Buffer, area: Rect, state: &State, cursor: usi
     }
     lines.push((String::new(), theme.text()));
     lines.push((lang.t().menu_keys.to_string(), theme.dim()));
-    draw_box(buf, area, theme, lang.t().title_send_signal, &lines);
+    draw_box(buf, area, &theme, lang.t().title_send_signal, &lines);
 }
 
 /// Selector de prioridad: valor actual, valor nuevo y una regla de -20 a 19.
 pub fn draw_nice(buf: &mut Buffer, area: Rect, state: &State, request: &NiceRequest) {
-    let theme = state.theme;
+    let theme = state.theme.clone();
     let lang = state.lang;
     let t = lang.t();
     // Regla de 40 posiciones (-20..=19) con una marca en el valor elegido.
@@ -152,7 +152,7 @@ pub fn draw_nice(buf: &mut Buffer, area: Rect, state: &State, request: &NiceRequ
             format!("{} {:>3}", t.nice_new, request.value),
             theme.selected(),
         ),
-        (ruler, Style::default().fg(theme.accent())),
+        (ruler, theme.accent()),
         (t.nice_ruler.to_string(), theme.dim()),
         (t.nice_only_under_load.to_string(), theme.dim()),
     ];
@@ -160,7 +160,7 @@ pub fn draw_nice(buf: &mut Buffer, area: Rect, state: &State, request: &NiceRequ
     // un usuario común, porque el kernel no deja volver a un valor menor.
     let raising = (request.value as i64) < request.current.0;
     let lowering = (request.value as i64) > request.current.0;
-    let warn = Style::default().fg(theme.load(50.0));
+    let warn = theme.warn();
     if raising {
         lines.push((t.nice_raise_needs_root.to_string(), warn));
         lines.push((String::new(), theme.text()));
@@ -177,7 +177,7 @@ pub fn draw_nice(buf: &mut Buffer, area: Rect, state: &State, request: &NiceRequ
     } else {
         t.title_priority_app
     };
-    draw_box(buf, area, theme, title, &lines);
+    draw_box(buf, area, &theme, title, &lines);
 }
 
 #[cfg(test)]
@@ -194,7 +194,7 @@ mod tests {
                 "una línea bastante larga de prueba".to_string(),
                 theme.text(),
             )];
-            draw_box(&mut buf, area, theme, "Título", &lines);
+            draw_box(&mut buf, area, &theme, "Título", &lines);
         }
     }
 }

@@ -27,6 +27,9 @@ pub use theme::Theme;
 pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
     let full = frame.area();
     let buf = frame.buffer_mut();
+    // Texto y fondo del tema en todo el cuadro. El tema de fábrica usa los
+    // de la terminal y no pinta nada.
+    buf.set_style(full, state.theme.text());
     if state.enforce_min_size && (full.width < MIN_SIZE.0 || full.height < MIN_SIZE.1) {
         draw_too_small(buf, full, state);
         return;
@@ -534,6 +537,70 @@ mod tests {
         state.set_apps(state::tests::sample_apps());
         for (w, h) in [(1, 1), (3, 2), (17, 5), (200, 3)] {
             let _ = render_to_text(w, h, &mut state, &mut test_store());
+        }
+    }
+
+    /// Vuelca los estilos de un cuadro: por fila, tramos
+    /// `color de texto / fondo / modificadores × ancho`.
+    fn render_styles(width: u16, height: u16, state: &mut State) -> String {
+        let mut store = test_store();
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+        terminal.draw(|f| draw(f, state, &mut store)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let mut out = String::new();
+        for y in 0..height {
+            let mut runs: Vec<(String, u16)> = Vec::new();
+            for x in 0..width {
+                let c = &buffer[(x, y)];
+                let key = format!("{:?}/{:?}/{:?}", c.fg, c.bg, c.modifier);
+                match runs.last_mut() {
+                    Some((last, n)) if *last == key => *n += 1,
+                    _ => runs.push((key, 1)),
+                }
+            }
+            let line: Vec<String> = runs.iter().map(|(k, n)| format!("{k}×{n}")).collect();
+            out.push_str(&line.join(" "));
+            out.push('\n');
+        }
+        out
+    }
+
+    /// Con el tema por defecto, los colores de cada celda son los de
+    /// siempre: estos snapshots se tomaron antes de pasar a `tui-themes`.
+    #[test]
+    fn default_theme_styles_are_unchanged() {
+        let mut state = State::new(Theme::default());
+        state.set_apps(state::tests::sample_apps());
+        state.selected = Some("App:Firefox".into());
+        insta::assert_snapshot!("styles_grid", render_styles(80, 24, &mut state));
+        insta::assert_snapshot!("styles_detail", render_styles(80, 24, &mut detail_state()));
+        let mut dialog = detail_state();
+        dialog.mode = Mode::SignalMenu(0);
+        insta::assert_snapshot!("styles_dialog", render_styles(80, 24, &mut dialog));
+    }
+
+    /// Un tema con fondo propio lo pinta en todo el cuadro, también bajo
+    /// los diálogos.
+    #[test]
+    fn a_theme_with_background_paints_every_cell() {
+        let base = tui_themes::Catalog::builtin().get_or_plain("ramas-light");
+        let bg = base.bg;
+        assert_ne!(bg, ratatui::style::Color::Reset);
+        let theme = Theme::resolve(&base, None, tui_themes::ColorDepth::TrueColor);
+        for dialog in [false, true] {
+            let mut state = detail_state();
+            state.theme = theme.clone();
+            if dialog {
+                state.mode = Mode::SignalMenu(0);
+            }
+            let mut store = test_store();
+            let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+            terminal.draw(|f| draw(f, &mut state, &mut store)).unwrap();
+            let buffer = terminal.backend().buffer();
+            // Cada celda lleva el fondo del tema o el de la selección.
+            let allowed = [bg, base.selection_bg];
+            assert!(buffer.content.iter().all(|c| allowed.contains(&c.bg)));
+            assert!(buffer.content.iter().any(|c| c.bg == bg));
         }
     }
 

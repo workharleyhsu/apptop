@@ -1,0 +1,28 @@
+---
+source: src/ui/mod.rs
+expression: "render_styles(80, 24, &mut detail_state())"
+---
+Rgb(122, 162, 247)/Reset/BOLD×6 Rgb(150, 160, 185)/Reset/BOLD×6 Rgb(125, 130, 145)/Reset/NONE×3 Rgb(150, 160, 185)/Reset/BOLD×6 Rgb(125, 130, 145)/Reset/NONE×3 Rgb(150, 160, 185)/Reset/BOLD×7 Rgb(125, 130, 145)/Reset/NONE×3 Reset/Reset/NONE×20 Rgb(125, 130, 145)/Reset/NONE×26
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(120, 170, 210)/Reset/BOLD×7 Reset/Reset/NONE×27 Rgb(158, 206, 106)/Reset/BOLD×9 Reset/Reset/NONE×3 Rgb(125, 130, 145)/Reset/NONE×8
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×17 Reset/Reset/NONE×17 Rgb(158, 206, 106)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×36 Rgb(158, 206, 106)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Reset/Reset/NONE×23 Rgb(158, 206, 106)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Reset/Reset/NONE×23 Rgb(158, 206, 106)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Reset/Reset/NONE×23 Rgb(158, 206, 106)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Reset/Reset/NONE×23 Rgb(187, 154, 247)/Reset/BOLD×8 Reset/Reset/NONE×4 Rgb(125, 130, 145)/Reset/NONE×8
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Rgb(158, 206, 106)/Reset/NONE×5 Reset/Reset/NONE×18 Rgb(187, 154, 247)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Reset/Reset/NONE×23 Rgb(187, 154, 247)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Reset/Reset/NONE×23 Rgb(187, 154, 247)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Reset/Reset/NONE×23 Rgb(187, 154, 247)/Reset/NONE×20
+Rgb(120, 170, 210)/Reset/NONE×24 Reset/Reset/NONE×2 Rgb(125, 130, 145)/Reset/NONE×11 Reset/Reset/NONE×23 Rgb(187, 154, 247)/Reset/NONE×20
+Reset/Reset/NONE×80
+Rgb(150, 160, 185)/Reset/BOLD×80
+Reset/Reset/NONE×10 Reset/Reset/BOLD×7 Reset/Reset/NONE×31 Rgb(158, 206, 106)/Reset/NONE×7 Reset/Reset/NONE×14 Rgb(125, 130, 145)/Reset/NONE×11
+Reset/Reset/NONE×10 Rgb(125, 130, 145)/Reset/NONE×3 Reset/Reset/BOLD×7 Rgb(125, 130, 145)/Reset/NONE×28 Rgb(158, 206, 106)/Reset/NONE×7 Reset/Reset/NONE×14 Rgb(125, 130, 145)/Reset/NONE×11
+Reset/Reset/NONE×10 Rgb(125, 130, 145)/Reset/NONE×3 Reset/Reset/BOLD×7 Reset/Reset/NONE×28 Rgb(247, 118, 142)/Reset/NONE×7 Reset/Reset/NONE×14 Rgb(224, 175, 104)/Reset/NONE×11
+Reset/Reset/NONE×80
+Reset/Reset/NONE×80
+Reset/Reset/NONE×80
+Reset/Reset/NONE×80
+Reset/Reset/NONE×80
+Rgb(122, 162, 247)/Reset/BOLD×1 Rgb(125, 130, 145)/Reset/NONE×8 Rgb(122, 162, 247)/Reset/BOLD×1 Rgb(125, 130, 145)/Reset/NONE×7 Rgb(122, 162, 247)/Reset/BOLD×1 Rgb(125, 130, 145)/Reset/NONE×8 Rgb(122, 162, 247)/Reset/BOLD×1 Rgb(125, 130, 145)/Reset/NONE×11 Rgb(122, 162, 247)/Reset/BOLD×1 Rgb(125, 130, 145)/Reset/NONE×9 Rgb(122, 162, 247)/Reset/BOLD×3 Rgb(125, 130, 145)/Reset/NONE×7 Rgb(122, 162, 247)/Reset/BOLD×1 Rgb(125, 130, 145)/Reset/NONE×5 Reset/Reset/NONE×16

@@ -214,7 +214,7 @@ icon_size = "large"    # small (8x4) | medium (12x6) | large (16x8)
 language = "en"        # en | es
 
 [theme]
-color = "auto"         # auto | truecolor | 256
+color = "auto"         # auto | truecolor | 256 | 16
 accent = "#7aa2f7"     # colour of the selection and the shortcuts
 icons = "breeze"       # icon theme; defaults to the desktop's
 ```

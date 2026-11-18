@@ -3,7 +3,7 @@
 use super::raster::{Rgba, ALPHA_INSIDE};
 
 /// Color usado cuando el icono no tiene ningún color propio (monocromo).
-pub const NEUTRAL: (u8, u8, u8) = (200, 200, 205);
+pub const NEUTRAL: (u8, u8, u8) = tui_themes::color::icon::NEUTRAL;
 
 /// Luminancia mínima del color devuelto, para que el contorno se lea sobre
 /// una terminal oscura.
@@ -93,33 +93,6 @@ fn legible(r: f32, g: f32, b: f32) -> (u8, u8, u8) {
     (r.round() as u8, g.round() as u8, b.round() as u8)
 }
 
-/// Índice de la paleta de 256 colores (cubo 6×6×6 o rampa de grises) más
-/// cercano a un color RGB.
-pub fn to_ansi256(rgb: (u8, u8, u8)) -> u8 {
-    const LEVELS: [i32; 6] = [0, 95, 135, 175, 215, 255];
-    let nearest = |v: u8| -> usize {
-        LEVELS
-            .iter()
-            .enumerate()
-            .min_by_key(|(_, l)| (**l - v as i32).abs())
-            .map(|(i, _)| i)
-            .unwrap_or(0)
-    };
-    let (r, g, b) = (rgb.0 as i32, rgb.1 as i32, rgb.2 as i32);
-    let (ri, gi, bi) = (nearest(rgb.0), nearest(rgb.1), nearest(rgb.2));
-    let dist = |c: (i32, i32, i32)| (c.0 - r).pow(2) + (c.1 - g).pow(2) + (c.2 - b).pow(2);
-    let cube = (LEVELS[ri], LEVELS[gi], LEVELS[bi]);
-    // Rampa de grises: 232..=255 → 8, 18, ..., 238.
-    let gray_index = (((r + g + b) / 3 - 8).clamp(0, 230) + 5) / 10;
-    let gray_index = gray_index.min(23);
-    let gray = 8 + 10 * gray_index;
-    if dist((gray, gray, gray)) < dist(cube) {
-        (232 + gray_index) as u8
-    } else {
-        (16 + 36 * ri + 6 * gi + bi) as u8
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,14 +145,5 @@ mod tests {
         let (r, g, b) = dominant(&image(&[([10, 20, 90, 255], 10)]));
         assert!(luma(r as f32, g as f32, b as f32) >= MIN_LUMA - 1.5);
         assert!(b > r && b > g);
-    }
-
-    #[test]
-    fn maps_to_the_256_colour_palette() {
-        assert_eq!(to_ansi256((255, 0, 0)), 196);
-        assert_eq!(to_ansi256((0, 0, 255)), 21);
-        assert_eq!(to_ansi256((255, 255, 255)), 231);
-        assert_eq!(to_ansi256((128, 128, 128)), 244);
-        assert_eq!(to_ansi256((95, 135, 175)), 67);
     }
 }

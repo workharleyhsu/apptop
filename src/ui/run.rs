@@ -11,6 +11,7 @@ use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture};
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
 use ratatui::DefaultTerminal;
+use tui_themes::{Catalog, ColorDepth};
 
 use crate::actions::{ancestry, elevate, send_signal, set_nice, ElevateOutcome, Elevated};
 use crate::apps::Sampler;
@@ -21,7 +22,7 @@ use crate::icons::{IconLocator, IconStore};
 
 use super::input::{handle_event, Outcome};
 use super::state::{clamp_refresh, SortKey, State};
-use super::theme::{terminal_has_truecolor, Theme, DEFAULT_ACCENT};
+use super::theme::{Theme, DEFAULT_THEME};
 
 /// Opciones de la sesión interactiva (configuración + línea de comandos).
 #[derive(Debug, Clone, PartialEq)]
@@ -48,19 +49,20 @@ impl Default for RunOptions {
 
 impl RunOptions {
     pub fn from_config(config: &Config) -> Self {
-        let truecolor = match config.color {
-            ColorMode::Auto => terminal_has_truecolor(),
-            ColorMode::Truecolor => true,
-            ColorMode::Palette256 => false,
+        // Forzar una profundidad en la configuración ignora el entorno
+        // (también `NO_COLOR`); en `auto` decide `tui-themes`.
+        let depth = match config.color {
+            ColorMode::Auto => ColorDepth::detect(),
+            ColorMode::Truecolor => ColorDepth::TrueColor,
+            ColorMode::Palette256 => ColorDepth::Ansi256,
+            ColorMode::Palette16 => ColorDepth::Ansi16,
         };
+        let base = Catalog::builtin().get_or_plain(DEFAULT_THEME);
         Self {
             refresh: config.refresh,
             sort: config.sort,
             icon_size: config.icon_size.cells(),
-            theme: Theme {
-                truecolor,
-                accent_rgb: config.accent.unwrap_or(DEFAULT_ACCENT),
-            },
+            theme: Theme::resolve(&base, config.accent, depth),
             icon_theme: config.icon_theme.clone(),
             lang: config.language,
             panic_test: false,
@@ -69,7 +71,7 @@ impl RunOptions {
 
     /// Estado inicial de la interfaz con estas opciones.
     pub fn new_state(&self) -> State {
-        let mut state = State::new(self.theme);
+        let mut state = State::new(self.theme.clone());
         state.refresh = clamp_refresh(self.refresh);
         state.sort = self.sort;
         state.icon_size = self.icon_size;
@@ -302,8 +304,11 @@ mod tests {
         assert_eq!(state.icon_size, (8, 4));
         assert_eq!(state.lang, Lang::Es);
         assert_eq!(RunOptions::default().new_state().lang, Lang::En);
-        assert!(!state.theme.truecolor);
-        assert_eq!(state.theme.accent_rgb, (9, 8, 7));
+        assert!(!state.theme.truecolor());
+        assert_eq!(
+            state.theme.accent().fg,
+            Some(ratatui::style::Color::Indexed(232))
+        );
         assert_eq!(options.new_store().locator().theme(), "Adwaita");
     }
 
@@ -313,7 +318,7 @@ mod tests {
             color: ColorMode::Truecolor,
             ..Config::default()
         };
-        assert!(RunOptions::from_config(&config).theme.truecolor);
+        assert!(RunOptions::from_config(&config).theme.truecolor());
         assert_eq!(RunOptions::default().icon_size, (16, 8));
     }
 }

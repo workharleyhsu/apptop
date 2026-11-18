@@ -275,7 +275,7 @@ icon_size = "large"    # small (8x4) | medium (12x6) | large (16x8)
 language = "es"        # en (por defecto) | es
 
 [theme]
-color = "auto"         # auto | truecolor | 256
+color = "auto"         # auto | truecolor | 256 | 16
 accent = "#7aa2f7"     # color de la selección y los atajos
 icons = "breeze"       # tema de iconos; por defecto, el del escritorio
 ```

@@ -427,3 +427,22 @@ De paso: `apptop --list | head` terminaba con un panic por tubería rota. Ahora
 - Verificado en tmux con un `sleep` de `systemd-run --user`: diálogo, prompt y cancelación.
   Falta probar el camino con la contraseña correcta.
 - README: capturas reales en PNG (`docs/screenshots/`, fuera del paquete del crate).
+
+## Temas compartidos (`tui-themes`), 2026-11-18
+
+- Los colores ya no se definen en apptop: `src/ui/theme.rs` es un envoltorio fino sobre el
+  crate `tui-themes` (repo hermano, `../tui-themes`). El plan y el avance de este trabajo
+  están en `../tui-themes/THEMES_PROGRESS.md`.
+- El tema de fábrica es `apptop`: mismos colores de siempre, con texto y fondo de la
+  terminal. La regla "nunca se pinta fondo" ahora vale para ese tema; otros temas sí
+  pintan el suyo, y `ui::draw` lo aplica a todo el cuadro antes de dibujar.
+- Prueba de que nada cambió: `default_theme_styles_are_unchanged` compara color, fondo y
+  modificadores de cada celda (grilla, detalle y diálogo) contra snapshots tomados antes
+  de migrar.
+- Profundidad de color: `theme.color = "auto"` usa `ColorDepth::detect()` (`NO_COLOR`,
+  `COLORTERM`, `TERM`) y puede bajar a 16 colores o a ninguno. Forzar `truecolor`, `256`
+  o `16` ignora el entorno, como antes.
+- `Theme` dejó de ser `Copy` (lleva un `Arc`): se clona, y es barato.
+- Excepción consciente: los colores de los iconos sin color propio (`NEUTRAL`, genéricos
+  de app y servicio) son datos del análisis de imagen; sus valores viven en
+  `tui_themes::color::icon`.

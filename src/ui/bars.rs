@@ -36,15 +36,13 @@ pub fn draw_top(buf: &mut Buffer, area: Rect, state: &State) {
     if area.height == 0 {
         return;
     }
-    let theme = state.theme;
+    let theme = state.theme.clone();
     let t = state.lang.t();
     let label = theme.header();
     let dim = theme.dim();
     let mut spans: Vec<(String, Style)> = vec![(
         "apptop".to_string(),
-        Style::default()
-            .fg(theme.accent())
-            .add_modifier(Modifier::BOLD),
+        theme.accent().add_modifier(Modifier::BOLD),
     )];
 
     let mut gauge = |name: &str, fraction: Option<f32>, value: String| {
@@ -52,7 +50,7 @@ pub fn draw_top(buf: &mut Buffer, area: Rect, state: &State) {
         match fraction {
             Some(fraction) => {
                 let (on, off) = meter(fraction);
-                spans.push((on, Style::default().fg(theme.load(fraction * 100.0))));
+                spans.push((on, theme.load(fraction * 100.0)));
                 spans.push((off, dim));
                 spans.push((format!(" {value}"), theme.text()));
             }
@@ -222,7 +220,7 @@ pub fn draw_bottom(buf: &mut Buffer, area: Rect, state: &State) {
     if area.height == 0 {
         return;
     }
-    let theme = state.theme;
+    let theme = state.theme.clone();
     // Un aviso vigente ocupa el lugar de los atajos.
     if let Some(message) = state.current_message() {
         let color = if message.is_error {
@@ -230,13 +228,11 @@ pub fn draw_bottom(buf: &mut Buffer, area: Rect, state: &State) {
         } else {
             theme.load(0.0)
         };
-        let style = Style::default().fg(color).add_modifier(Modifier::BOLD);
+        let style = color.add_modifier(Modifier::BOLD);
         buf.set_stringn(area.x, area.y, &message.text, area.width as usize, style);
         return;
     }
-    let key_style = Style::default()
-        .fg(theme.accent())
-        .add_modifier(Modifier::BOLD);
+    let key_style = theme.accent().add_modifier(Modifier::BOLD);
     let mut spans = Vec::new();
     for (i, hint) in fit_hints(hints(state), area.width as usize)
         .into_iter()

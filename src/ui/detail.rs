@@ -175,9 +175,9 @@ pub const HEADER_HEIGHT: u16 = DETAIL_ICON.1;
 
 /// Dibuja la cabecera: icono grande a la izquierda y datos a la derecha.
 fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store: &mut IconStore) {
-    let theme = state.theme;
+    let theme = state.theme.clone();
     let icon = icon_for(app, store, DETAIL_ICON);
-    let icon_style = Style::default().fg(theme.rgb(icon.color));
+    let icon_style = theme.icon(icon.color);
     for (row, line) in icon.rows().iter().enumerate().take(area.height as usize) {
         buf.set_stringn(
             area.x,
@@ -231,7 +231,7 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
         (
             "CPU",
             format!("{:.1}%", app.cpu_pct),
-            Style::default().fg(theme.load(app.cpu_pct)),
+            theme.load(app.cpu_pct),
         ),
         ("RAM", ram, theme.text()),
         (
@@ -253,9 +253,7 @@ fn draw_header(buf: &mut Buffer, area: Rect, app: &App, state: &mut State, store
     ];
 
     let line = |y: u16| Rect::new(info.x, info.y + y, info.width, 1);
-    let name_style = Style::default()
-        .fg(theme.rgb(icon.color))
-        .add_modifier(Modifier::BOLD);
+    let name_style = theme.icon(icon.color).add_modifier(Modifier::BOLD);
     if info.height > 0 {
         write_spans(buf, line(0), &[(app.name.clone(), name_style)]);
     }
@@ -297,7 +295,7 @@ fn draw_graphs(buf: &mut Buffer, area: Rect, app: &App, state: &State) {
     if area.height < 4 {
         return;
     }
-    let theme = state.theme;
+    let theme = state.theme.clone();
     let empty = History::default();
     let history = state.history.get(&app.id).unwrap_or(&empty);
     let columns = area.width as usize * 2;
@@ -309,7 +307,7 @@ fn draw_graphs(buf: &mut Buffer, area: Rect, app: &App, state: &State) {
     let cpu = history.resample(state.clock, columns, |p| p.cpu_pct as f64);
     let cpu_peak = cpu.iter().flatten().fold(0.0f64, |a, b| a.max(*b));
     let cpu_max = cpu_scale(cpu_peak);
-    let cpu_color = Style::default().fg(theme.load(app.cpu_pct));
+    let cpu_color = theme.load(app.cpu_pct);
     title_row(
         buf,
         Rect::new(area.x, area.y, area.width, 1),
@@ -330,7 +328,7 @@ fn draw_graphs(buf: &mut Buffer, area: Rect, app: &App, state: &State) {
     let ram_peak = ram.iter().flatten().fold(0.0f64, |a, b| a.max(*b));
     // Un 25 % de aire sobre el pico; mínimo 1 MiB para no dividir por cero.
     let ram_max = (ram_peak * 1.25).max(1024.0 * 1024.0);
-    let ram_color = Style::default().fg(theme.rgb((187, 154, 247)));
+    let ram_color = theme.ram();
     let y = area.y + half;
     title_row(
         buf,
