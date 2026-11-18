@@ -75,9 +75,9 @@ Download the package for your distribution from the
 or install it from a terminal:
 
 ```sh
-sudo apt install ./apptop_0.1.4-1_amd64.deb      # Debian, Ubuntu, Mint…
-sudo dnf install ./apptop-0.1.4-1.x86_64.rpm     # Fedora, RHEL…
-sudo zypper install ./apptop-0.1.4-1.x86_64.rpm  # openSUSE
+sudo apt install ./apptop_0.2.0-1_amd64.deb      # Debian, Ubuntu, Mint…
+sudo dnf install ./apptop-0.2.0-1.x86_64.rpm     # Fedora, RHEL…
+sudo zypper install ./apptop-0.2.0-1.x86_64.rpm  # openSUSE
 ```
 
 Uninstall with `sudo apt remove apptop` or `sudo dnf remove apptop`.
@@ -99,9 +99,9 @@ Every option uses the same static executable, so it does not depend on your
 distribution's version. You can also unpack it yourself:
 
 ```sh
-tar -xzf apptop-0.1.4-x86_64-linux.tar.gz
-sha256sum -c apptop-0.1.4-x86_64-linux.tar.gz.sha256   # optional
-install -Dm755 apptop-0.1.4-x86_64-linux/apptop ~/.local/bin/apptop
+tar -xzf apptop-0.2.0-x86_64-linux.tar.gz
+sha256sum -c apptop-0.2.0-x86_64-linux.tar.gz.sha256   # optional
+install -Dm755 apptop-0.2.0-x86_64-linux/apptop ~/.local/bin/apptop
 ```
 
 ### From source
