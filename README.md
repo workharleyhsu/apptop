@@ -134,7 +134,7 @@ The icons need a font with braille glyphs and look best in a terminal with
 | `/` | Filter by text (name, id or the name of any of its processes) |
 | `s` | Cycle the sort order: name → CPU → RAM |
 | `Tab` | Show all → apps only → services only |
-| `T` | Choose a colour theme (live preview) |
+| `Shift+T` | Choose a colour theme (live preview) |
 | `Esc` | Clear the filter |
 | `q` / `Ctrl+C` | Quit |
 
@@ -216,7 +216,7 @@ icon_size = "large"    # small (8x4) | medium (12x6) | large (16x8)
 language = "en"        # en | es
 
 [theme]
-name = "apptop"        # colour theme; `T` picks one and saves it here
+name = "apptop"        # colour theme; `Shift+T` picks one and saves it here
 color = "auto"         # auto | truecolor | 256 | 16
 icon_mode = "app"      # app | tint | mono; defaults to the theme's own
 accent = "#7aa2f7"     # replaces the theme's accent colour
@@ -230,7 +230,7 @@ The interface is in English by default and also available in Spanish.
 
 ## Themes
 
-Press `T` (in the grid or in the detail view) to open the theme picker: the
+Press `Shift+T` (in the grid or in the detail view) to open the theme picker: the
 arrows preview each theme on the whole screen, typing filters the list,
 `Enter` keeps the theme and saves it in the configuration file, and `Esc`
 goes back to the one you had.

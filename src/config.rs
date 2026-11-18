@@ -11,7 +11,7 @@
 //! language = "en"        # en | es
 //!
 //! [theme]
-//! name = "apptop"       # tema de colores; `T` lo elige y lo guarda acá
+//! name = "apptop"       # tema de colores; `Shift+T` lo elige y lo guarda acá
 //! color = "auto"         # auto | truecolor | 256 | 16
 //! icon_mode = "app"      # app | tint | mono; por defecto, el del tema
 //! accent = "#7aa2f7"     # color de selección y atajos

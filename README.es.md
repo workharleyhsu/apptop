@@ -194,7 +194,7 @@ color de 24 bits (si no, se degrada a 256 o 16 colores, o a ninguno con
 | `/` | Filtrar por texto (nombre, id o nombre de algún proceso) |
 | `s` | Cambiar el orden: nombre → CPU → RAM |
 | `Tab` | Ver todo → solo apps → solo servicios |
-| `T` | Elegir un tema de colores (vista previa en vivo) |
+| `Shift+T` | Elegir un tema de colores (vista previa en vivo) |
 | `Esc` | Quitar el filtro |
 | `q` / `Ctrl+C` | Salir |
 
@@ -277,7 +277,7 @@ icon_size = "large"    # small (8x4) | medium (12x6) | large (16x8)
 language = "es"        # en (por defecto) | es
 
 [theme]
-name = "apptop"        # tema de colores; `T` elige uno y lo guarda acá
+name = "apptop"        # tema de colores; `Shift+T` elige uno y lo guarda acá
 color = "auto"         # auto | truecolor | 256 | 16
 icon_mode = "app"      # app | tint | mono; por defecto, el del tema
 accent = "#7aa2f7"     # reemplaza el color de acento del tema
@@ -289,7 +289,7 @@ valor por defecto; nunca impiden arrancar.
 
 ## Temas
 
-`T` (en la grilla o en el detalle) abre el selector de temas: las flechas
+`Shift+T` (en la grilla o en el detalle) abre el selector de temas: las flechas
 muestran cada tema en toda la pantalla, escribir filtra la lista, `Enter`
 deja el tema y lo guarda en la configuración, y `Esc` vuelve al que tenías.
 
