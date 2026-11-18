@@ -627,6 +627,7 @@ mod tests {
         assert_eq!(s.mode, Mode::Normal);
         assert_eq!(s.theme.id(), "apptop");
         assert!(s.picker.is_none());
+        assert_eq!(s.theme_to_save, None);
     }
 
     #[test]
@@ -647,6 +648,8 @@ mod tests {
         assert_eq!(s.mode, Mode::Normal);
         assert_eq!(s.theme.id(), "gruvbox-dark");
         assert_eq!(s.current_message().unwrap().text, "Theme: Gruvbox Dark");
+        // Queda pendiente de guardar en la configuración.
+        assert_eq!(s.theme_to_save.take().as_deref(), Some("gruvbox-dark"));
         // También se abre desde el detalle.
         s.view = View::Detail;
         handle_event(&mut s, &key(KeyCode::Char('T')));

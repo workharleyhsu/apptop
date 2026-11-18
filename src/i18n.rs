@@ -62,6 +62,8 @@ pub struct Texts {
     pub theme_hint: &'static str,
     pub theme_no_match: &'static str,
     pub theme_invalid: &'static str,
+    pub unknown_theme: &'static str,
+    pub theme_files_failed: &'static str,
     /// Letra que confirma un diálogo (también se acepta la del otro idioma).
     pub yes_key: &'static str,
     // Orden y secciones.
@@ -193,6 +195,8 @@ pub const EN: Texts = Texts {
     theme_hint: "↑↓  Enter save  Esc cancel",
     theme_no_match: "No theme matches",
     theme_invalid: "Could not load",
+    unknown_theme: "Unknown theme",
+    theme_files_failed: "theme file(s) could not be loaded: press T to see why",
     yes_key: "y",
     sort_name: "name",
     sections_all: "all",
@@ -310,6 +314,8 @@ pub const ES: Texts = Texts {
     theme_hint: "↑↓  Enter guardar  Esc cancelar",
     theme_no_match: "Ningún tema coincide",
     theme_invalid: "No se pudo cargar",
+    unknown_theme: "Tema desconocido",
+    theme_files_failed: "archivo(s) de tema no se pudieron cargar: T muestra por qué",
     yes_key: "s",
     sort_name: "nombre",
     sections_all: "todo",

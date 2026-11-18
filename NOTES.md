@@ -452,3 +452,10 @@ De paso: `apptop --list | head` terminaba con un panic por tubería rota. Ahora
   anterior. El widget y su lógica viven en `tui_themes::picker`; apptop solo traduce las
   teclas y pone los textos (`i18n.rs`). El atajo `T` aparece en la barra con prioridad 1:
   en 80 columnas no entra y los snapshots viejos no cambian.
+- El tema elegido se guarda en `[theme] name` de la configuración con `tui_themes::save_theme`
+  (`toml_edit`: no toca comentarios ni otras claves). Lo hace el bucle principal a partir de
+  `State::theme_to_save`; si no se puede escribir, se avisa en la barra y el tema queda para
+  esa sesión. Se guarda en el archivo de `--config`, o en el de la ruta por defecto.
+- Temas del usuario: `~/.config/tui-themes/themes/*.toml` (`Catalog::load`). Un archivo roto
+  se informa por stderr, en un aviso al arrancar y dentro del selector; nunca impide arrancar.
+  Un `theme.name` desconocido cae al tema de fábrica con un aviso.

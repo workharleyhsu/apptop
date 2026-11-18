@@ -255,6 +255,9 @@ pub struct State {
     pub themes: ThemeSet,
     /// Selector de temas abierto, con el tema que había al abrirlo.
     pub picker: Option<(Picker, Theme)>,
+    /// Tema confirmado en el selector, pendiente de guardar en la
+    /// configuración (lo hace el bucle principal).
+    pub theme_to_save: Option<String>,
     /// Disposición del último cuadro dibujado (para el mouse y el scroll).
     pub layout: GridLayout,
 }
@@ -295,6 +298,7 @@ impl State {
             theme,
             themes: ThemeSet::default(),
             picker: None,
+            theme_to_save: None,
             layout: GridLayout::default(),
         }
     }
@@ -758,6 +762,7 @@ impl State {
             PickerEvent::Confirm(id) => {
                 self.show_theme(&id);
                 self.close_theme_picker();
+                self.theme_to_save = Some(self.theme.id().to_string());
                 let text = format!("{}: {}", self.lang.t().title_theme, self.theme.name());
                 self.notify(text, false);
             }

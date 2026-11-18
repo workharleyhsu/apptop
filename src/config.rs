@@ -11,6 +11,7 @@
 //! language = "en"        # en | es
 //!
 //! [theme]
+//! name = "apptop"       # tema de colores; `T` lo elige y lo guarda acá
 //! color = "auto"         # auto | truecolor | 256 | 16
 //! accent = "#7aa2f7"     # color de selección y atajos
 //! icons = "breeze"       # tema de iconos; por defecto, el del escritorio
@@ -101,7 +102,9 @@ pub struct Config {
     /// Idioma de la interfaz.
     pub language: Lang,
     pub color: ColorMode,
-    /// Color de acento; `None` = el de fábrica.
+    /// Tema de colores (`theme.name`); `None` = el de fábrica.
+    pub theme: Option<String>,
+    /// Color de acento; `None` = el del tema.
     pub accent: Option<(u8, u8, u8)>,
     /// Tema de iconos; `None` = detectar el del escritorio.
     pub icon_theme: Option<String>,
@@ -115,6 +118,7 @@ impl Default for Config {
             icon_size: IconSize::default(),
             language: Lang::default(),
             color: ColorMode::default(),
+            theme: None,
             accent: None,
             icon_theme: None,
         }
@@ -327,6 +331,9 @@ impl Config {
                 // `color = 256` sin comillas también vale.
                 ("color", Value::Integer(256)) => self.color = ColorMode::Palette256,
                 ("color", Value::Integer(16)) => self.color = ColorMode::Palette16,
+                ("name", Value::String(text)) if !text.trim().is_empty() => {
+                    self.theme = Some(text.trim().to_lowercase());
+                }
                 ("accent", Value::String(text)) => match parse_hex_color(text) {
                     Some(rgb) => self.accent = Some(rgb),
                     None => warnings.push(Warning::Expected(full, text.clone(), "#rrggbb")),
@@ -334,7 +341,7 @@ impl Config {
                 ("icons", Value::String(text)) if !text.trim().is_empty() => {
                     self.icon_theme = Some(text.trim().to_string());
                 }
-                ("color" | "accent" | "icons", other) => {
+                ("name" | "color" | "accent" | "icons", other) => {
                     warnings.push(Warning::WrongType(full, other.type_str().to_string()));
                 }
                 _ => warnings.push(Warning::UnknownKey(full)),
@@ -356,6 +363,9 @@ impl Config {
             self.language.code(),
             self.color.label(),
         );
+        if let Some(name) = &self.theme {
+            out.push_str(&format!("name = \"{name}\"\n"));
+        }
         if let Some((r, g, b)) = self.accent {
             out.push_str(&format!("accent = \"#{r:02x}{g:02x}{b:02x}\"\n"));
         }
@@ -388,12 +398,14 @@ mod tests {
             language = "es"
 
             [theme]
+            name = "Gruvbox-Dark"
             color = "256"
             accent = "#ff8800"
             icons = "Papirus"
         "##;
         let (config, warnings) = Config::parse(text);
         assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(config.theme.as_deref(), Some("gruvbox-dark"));
         assert_eq!(config.refresh, Duration::from_millis(2500));
         assert_eq!(config.sort, SortKey::Cpu);
         assert_eq!(config.icon_size.cells(), (12, 6));
@@ -499,6 +511,7 @@ mod tests {
             icon_size: IconSize::Small,
             language: Lang::Es,
             color: ColorMode::Truecolor,
+            theme: Some("nord".into()),
             accent: Some((1, 2, 3)),
             icon_theme: Some("Adwaita".into()),
         };

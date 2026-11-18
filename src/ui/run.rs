@@ -1,7 +1,7 @@
 //! Bucle interactivo: terminal real, eventos y refresco periódico.
 
 use std::io::{self, stdout};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -42,6 +42,11 @@ pub struct RunOptions {
     pub lang: Lang,
     /// Provoca un panic tras el primer cuadro (para probar la restauración).
     pub panic_test: bool,
+    /// Archivo donde se guarda el tema elegido con `T`.
+    pub config_path: Option<PathBuf>,
+    /// Aviso sobre los temas para mostrar al arrancar (tema desconocido o
+    /// archivos de tema que no se pudieron leer).
+    pub theme_notice: Option<String>,
 }
 
 impl Default for RunOptions {
@@ -51,7 +56,14 @@ impl Default for RunOptions {
 }
 
 impl RunOptions {
+    /// Opciones a partir de la configuración, con los temas embebidos y
+    /// los del usuario (`~/.config/tui-themes/themes`).
     pub fn from_config(config: &Config) -> Self {
+        Self::from_config_with(config, Catalog::load())
+    }
+
+    /// Igual que [`RunOptions::from_config`], con el catálogo dado.
+    pub fn from_config_with(config: &Config, catalog: Catalog) -> Self {
         // Forzar una profundidad en la configuración ignora el entorno
         // (también `NO_COLOR`); en `auto` decide `tui-themes`.
         let depth = match config.color {
@@ -61,13 +73,22 @@ impl RunOptions {
             ColorMode::Palette16 => ColorDepth::Ansi16,
         };
         let themes = ThemeSet {
-            catalog: Arc::new(Catalog::builtin()),
+            catalog: Arc::new(catalog),
             depth,
             accent: config.accent,
         };
-        let theme = themes
-            .theme(DEFAULT_THEME)
-            .unwrap_or_else(|| Theme::builtin(depth));
+        let t = config.language.t();
+        let wanted = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
+        let mut theme_notice = match themes.catalog.errors().len() {
+            0 => None,
+            n => Some(format!("{n} {}", t.theme_files_failed)),
+        };
+        let theme = themes.theme(wanted).unwrap_or_else(|| {
+            theme_notice = Some(format!("{} \"{wanted}\"", t.unknown_theme));
+            themes
+                .theme(DEFAULT_THEME)
+                .unwrap_or_else(|| Theme::builtin(depth))
+        });
         Self {
             refresh: config.refresh,
             sort: config.sort,
@@ -77,6 +98,8 @@ impl RunOptions {
             icon_theme: config.icon_theme.clone(),
             lang: config.language,
             panic_test: false,
+            config_path: None,
+            theme_notice,
         }
     }
 
@@ -88,6 +111,9 @@ impl RunOptions {
         state.icon_size = self.icon_size;
         state.lang = self.lang;
         state.themes = self.themes.clone();
+        if let Some(notice) = &self.theme_notice {
+            state.notify(notice.clone(), true);
+        }
         state
     }
 
@@ -256,6 +282,15 @@ fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Resul
                 next_sample = Instant::now() + Duration::from_millis(150);
                 dirty = true;
             }
+            // El tema confirmado en el selector se guarda en la configuración.
+            if let Some(id) = state.theme_to_save.take() {
+                if let Some(path) = &options.config_path {
+                    if let Err(error) = tui_themes::save_theme(path, &["theme", "name"], &id) {
+                        state.notify(error, true);
+                    }
+                }
+                dirty = true;
+            }
             if let Some(request) = state.pending_nice.take() {
                 let report = set_nice(&request.targets, request.value);
                 state.notify(
@@ -306,6 +341,7 @@ mod tests {
             icon_size: IconSize::Small,
             language: Lang::Es,
             color: ColorMode::Palette256,
+            theme: None,
             accent: Some((9, 8, 7)),
             icon_theme: Some("Adwaita".into()),
         };
@@ -332,5 +368,56 @@ mod tests {
         };
         assert!(RunOptions::from_config(&config).theme.truecolor());
         assert_eq!(RunOptions::default().icon_size, (16, 8));
+    }
+
+    #[test]
+    fn the_configured_theme_is_loaded_and_an_unknown_one_falls_back() {
+        let named = |name: &str| Config {
+            theme: Some(name.into()),
+            color: ColorMode::Truecolor,
+            ..Config::default()
+        };
+        let options = RunOptions::from_config_with(&named("gruvbox-dark"), Catalog::builtin());
+        assert_eq!(options.theme.id(), "gruvbox-dark");
+        assert_eq!(options.theme_notice, None);
+        assert_eq!(options.new_state().current_message(), None);
+
+        let options = RunOptions::from_config_with(&named("nope"), Catalog::builtin());
+        assert_eq!(options.theme.id(), DEFAULT_THEME);
+        let state = options.new_state();
+        let message = state.current_message().unwrap();
+        assert_eq!(message.text, "Unknown theme \"nope\"");
+        assert!(message.is_error);
+    }
+
+    #[test]
+    fn user_themes_are_offered_and_broken_files_only_warn() {
+        let dir = tempfile::tempdir().unwrap();
+        let mine = r##"
+            name = "Mine"
+            [colors]
+            bg = "#101010"
+            fg = "#f0f0f0"
+            dim = "#808080"
+            accent = "#00aaff"
+            border = "#404040"
+            selection_fg = "#ffffff"
+            selection_bg = "#303060"
+            ok = "#00cc66"
+            warn = "#ffcc00"
+            danger = "#ff3355"
+        "##;
+        std::fs::write(dir.path().join("mine.toml"), mine).unwrap();
+        std::fs::write(dir.path().join("broken.toml"), "[colors]\n").unwrap();
+        let config = Config {
+            theme: Some("mine".into()),
+            language: Lang::Es,
+            ..Config::default()
+        };
+        let options = RunOptions::from_config_with(&config, Catalog::with_user_dir(dir.path()));
+        assert_eq!(options.theme.id(), "mine");
+        assert_eq!(options.themes.catalog.errors().len(), 1);
+        let notice = options.theme_notice.clone().unwrap();
+        assert!(notice.starts_with("1 archivo(s) de tema"), "{notice}");
     }
 }

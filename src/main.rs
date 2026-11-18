@@ -126,6 +126,11 @@ fn main() {
     }
     let mut options = RunOptions::from_config(&config);
     options.panic_test = cli.panic_test;
+    options.config_path = cli.config.clone().or_else(apptop::config::default_path);
+    // Un archivo de tema roto no impide arrancar: se avisa y se sigue.
+    for error in options.themes.catalog.errors() {
+        eprintln!("apptop: {error}");
+    }
 
     if cli.list {
         list_apps(&options);
