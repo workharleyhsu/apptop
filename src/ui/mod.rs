@@ -647,6 +647,33 @@ mod tests {
         assert!(text.contains("Tema") && text.contains("Enter guardar"));
     }
 
+    /// En modo `mono` ningún icono conserva su color propio: en la grilla
+    /// solo quedan colores del tema.
+    #[test]
+    fn mono_icons_use_only_theme_colours() {
+        let base = tui_themes::Catalog::builtin().get_or_plain(theme::DEFAULT_THEME);
+        let own = tui_themes::color::icon::GENERIC_APP;
+        let own = ratatui::style::Color::Rgb(own.0, own.1, own.2);
+        let colours = |mode| {
+            let mut state = State::new(Theme::resolve_with(
+                &base,
+                None,
+                Some(mode),
+                tui_themes::ColorDepth::TrueColor,
+            ));
+            state.set_apps(state::tests::sample_apps());
+            let mut store = test_store();
+            let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+            terminal.draw(|f| draw(f, &mut state, &mut store)).unwrap();
+            let buffer = terminal.backend().buffer();
+            buffer.content.iter().map(|c| c.fg).collect::<Vec<_>>()
+        };
+        assert!(colours(tui_themes::IconMode::App).contains(&own));
+        let mono = colours(tui_themes::IconMode::Mono);
+        assert!(!mono.contains(&own));
+        assert!(mono.contains(&base.icon));
+    }
+
     #[test]
     fn nothing_paints_a_background() {
         let mut state = State::new(Theme::default());

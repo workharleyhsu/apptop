@@ -76,6 +76,7 @@ impl RunOptions {
             catalog: Arc::new(catalog),
             depth,
             accent: config.accent,
+            icon_mode: config.icon_mode,
         };
         let t = config.language.t();
         let wanted = config.theme.as_deref().unwrap_or(DEFAULT_THEME);
@@ -342,6 +343,7 @@ mod tests {
             language: Lang::Es,
             color: ColorMode::Palette256,
             theme: None,
+            icon_mode: None,
             accent: Some((9, 8, 7)),
             icon_theme: Some("Adwaita".into()),
         };

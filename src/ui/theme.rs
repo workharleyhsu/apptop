@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use ratatui::style::{Color, Style};
-use tui_themes::{Catalog, ColorDepth, Theme as Palette};
+use tui_themes::{Catalog, ColorDepth, IconMode, Theme as Palette};
 
 /// Tema de fábrica: el aspecto de siempre, sin color de fondo propio.
 pub const DEFAULT_THEME: &str = "apptop";
@@ -26,6 +26,9 @@ pub struct ThemeSet {
     pub depth: ColorDepth,
     /// Acento pedido en la configuración (`theme.accent`), si lo hay.
     pub accent: Option<(u8, u8, u8)>,
+    /// Modo de color de los iconos pedido en la configuración
+    /// (`theme.icon_mode`); `None` = el que diga cada tema.
+    pub icon_mode: Option<IconMode>,
 }
 
 impl ThemeSet {
@@ -33,7 +36,7 @@ impl ThemeSet {
     pub fn theme(&self, id: &str) -> Option<Theme> {
         self.catalog
             .get(id)
-            .map(|base| Theme::resolve(base, self.accent, self.depth))
+            .map(|base| Theme::resolve_with(base, self.accent, self.icon_mode, self.depth))
     }
 }
 
@@ -43,6 +46,7 @@ impl Default for ThemeSet {
             catalog: Arc::new(Catalog::builtin()),
             depth: ColorDepth::TrueColor,
             accent: None,
+            icon_mode: None,
         }
     }
 }
@@ -51,7 +55,21 @@ impl Theme {
     /// Adapta un tema del catálogo (en 24 bits) a la terminal. `accent`
     /// reemplaza el color de acento del tema (opción `theme.accent`).
     pub fn resolve(base: &Palette, accent: Option<(u8, u8, u8)>, depth: ColorDepth) -> Self {
+        Self::resolve_with(base, accent, None, depth)
+    }
+
+    /// Como [`Theme::resolve`], y además `icon_mode` reemplaza el modo de
+    /// color de iconos del tema (opción `theme.icon_mode`).
+    pub fn resolve_with(
+        base: &Palette,
+        accent: Option<(u8, u8, u8)>,
+        icon_mode: Option<IconMode>,
+        depth: ColorDepth,
+    ) -> Self {
         let mut palette = base.clone();
+        if let Some(mode) = icon_mode {
+            palette.icon_mode = mode;
+        }
         if let Some((r, g, b)) = accent {
             let color = Color::Rgb(r, g, b);
             if palette.selection_fg == palette.accent {
@@ -136,9 +154,11 @@ impl Theme {
         self.palette.fg(self.palette.ram)
     }
 
-    /// Estilo del icono de una app a partir de su color dominante.
+    /// Estilo del icono de una app a partir de su color dominante, según
+    /// el modo del tema: `app` (su color real), `tint` (el color de la
+    /// paleta más parecido) o `mono` (un solo color).
     pub fn icon(&self, dominant: (u8, u8, u8)) -> Style {
-        self.palette.fg(self.rgb(dominant))
+        self.palette.fg(self.palette.icon_color(dominant))
     }
 }
 
@@ -187,6 +207,31 @@ mod tests {
         assert_eq!(t.load(10.0).fg, Some(p.ok));
         assert_eq!(t.load(40.0).fg, Some(p.warn));
         assert_eq!(t.load(90.0).fg, Some(p.danger));
+    }
+
+    #[test]
+    fn icon_mode_comes_from_the_theme_or_the_config() {
+        let base = Catalog::builtin().get_or_plain(DEFAULT_THEME);
+        let orange = (240, 120, 20);
+        let depth = ColorDepth::TrueColor;
+        // El tema de fábrica usa el color real de cada app.
+        let app = Theme::resolve(&base, None, depth);
+        assert_eq!(app.icon(orange).fg, Some(Color::Rgb(240, 120, 20)));
+        let mono = Theme::resolve_with(&base, None, Some(IconMode::Mono), depth);
+        assert_eq!(mono.icon(orange).fg, Some(mono.palette().icon));
+        assert_eq!(mono.icon((1, 2, 250)).fg, mono.icon(orange).fg);
+        let tint = Theme::resolve_with(&base, None, Some(IconMode::Tint), depth);
+        assert_eq!(tint.icon(orange).fg, Some(tint.palette().warn));
+        // El tema de alto contraste pide `tint` por sí mismo.
+        let set = ThemeSet::default();
+        let high = set.theme("high-contrast-dark").unwrap();
+        assert_eq!(high.palette().icon_mode, IconMode::Tint);
+        let forced = ThemeSet {
+            icon_mode: Some(IconMode::App),
+            ..ThemeSet::default()
+        };
+        let high = forced.theme("high-contrast-dark").unwrap();
+        assert_eq!(high.palette().icon_mode, IconMode::App);
     }
 
     #[test]

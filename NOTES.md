@@ -459,3 +459,8 @@ De paso: `apptop --list | head` terminaba con un panic por tubería rota. Ahora
 - Temas del usuario: `~/.config/tui-themes/themes/*.toml` (`Catalog::load`). Un archivo roto
   se informa por stderr, en un aviso al arrancar y dentro del selector; nunca impide arrancar.
   Un `theme.name` desconocido cae al tema de fábrica con un aviso.
+- `icon_mode` (por tema, o `theme.icon_mode` en la configuración): `app` usa el color
+  dominante real de cada icono, `tint` el color de la paleta de tono más cercano y `mono`
+  un solo color (rol `icon`). La elección vive en `tui_themes::Theme::icon_color`. En `app`,
+  sobre un fondo que pinta el tema, el color se acerca al del texto hasta llegar a 3:1; con
+  el fondo de la terminal no se toca (el tema de fábrica no cambia).

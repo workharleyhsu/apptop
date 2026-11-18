@@ -13,12 +13,15 @@
 //! [theme]
 //! name = "apptop"       # tema de colores; `T` lo elige y lo guarda acá
 //! color = "auto"         # auto | truecolor | 256 | 16
+//! icon_mode = "app"      # app | tint | mono; por defecto, el del tema
 //! accent = "#7aa2f7"     # color de selección y atajos
 //! icons = "breeze"       # tema de iconos; por defecto, el del escritorio
 //! ```
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+use tui_themes::IconMode;
 
 use toml::{Table, Value};
 
@@ -104,6 +107,8 @@ pub struct Config {
     pub color: ColorMode,
     /// Tema de colores (`theme.name`); `None` = el de fábrica.
     pub theme: Option<String>,
+    /// Color de los iconos (`theme.icon_mode`); `None` = el del tema.
+    pub icon_mode: Option<IconMode>,
     /// Color de acento; `None` = el del tema.
     pub accent: Option<(u8, u8, u8)>,
     /// Tema de iconos; `None` = detectar el del escritorio.
@@ -119,6 +124,7 @@ impl Default for Config {
             language: Lang::default(),
             color: ColorMode::default(),
             theme: None,
+            icon_mode: None,
             accent: None,
             icon_theme: None,
         }
@@ -334,6 +340,14 @@ impl Config {
                 ("name", Value::String(text)) if !text.trim().is_empty() => {
                     self.theme = Some(text.trim().to_lowercase());
                 }
+                ("icon_mode", Value::String(text)) => {
+                    match IconMode::parse(text.trim().to_lowercase().as_str()) {
+                        Some(mode) => self.icon_mode = Some(mode),
+                        None => {
+                            warnings.push(Warning::Expected(full, text.clone(), "app, tint, mono"))
+                        }
+                    }
+                }
                 ("accent", Value::String(text)) => match parse_hex_color(text) {
                     Some(rgb) => self.accent = Some(rgb),
                     None => warnings.push(Warning::Expected(full, text.clone(), "#rrggbb")),
@@ -341,7 +355,7 @@ impl Config {
                 ("icons", Value::String(text)) if !text.trim().is_empty() => {
                     self.icon_theme = Some(text.trim().to_string());
                 }
-                ("name" | "color" | "accent" | "icons", other) => {
+                ("name" | "color" | "icon_mode" | "accent" | "icons", other) => {
                     warnings.push(Warning::WrongType(full, other.type_str().to_string()));
                 }
                 _ => warnings.push(Warning::UnknownKey(full)),
@@ -365,6 +379,9 @@ impl Config {
         );
         if let Some(name) = &self.theme {
             out.push_str(&format!("name = \"{name}\"\n"));
+        }
+        if let Some(mode) = self.icon_mode {
+            out.push_str(&format!("icon_mode = \"{}\"\n", mode.as_str()));
         }
         if let Some((r, g, b)) = self.accent {
             out.push_str(&format!("accent = \"#{r:02x}{g:02x}{b:02x}\"\n"));
@@ -399,6 +416,7 @@ mod tests {
 
             [theme]
             name = "Gruvbox-Dark"
+            icon_mode = "tint"
             color = "256"
             accent = "#ff8800"
             icons = "Papirus"
@@ -406,6 +424,7 @@ mod tests {
         let (config, warnings) = Config::parse(text);
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(config.theme.as_deref(), Some("gruvbox-dark"));
+        assert_eq!(config.icon_mode, Some(IconMode::Tint));
         assert_eq!(config.refresh, Duration::from_millis(2500));
         assert_eq!(config.sort, SortKey::Cpu);
         assert_eq!(config.icon_size.cells(), (12, 6));
@@ -512,6 +531,7 @@ mod tests {
             language: Lang::Es,
             color: ColorMode::Truecolor,
             theme: Some("nord".into()),
+            icon_mode: Some(IconMode::Mono),
             accent: Some((1, 2, 3)),
             icon_theme: Some("Adwaita".into()),
         };
