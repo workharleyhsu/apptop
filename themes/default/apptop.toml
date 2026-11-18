@@ -1,0 +1,24 @@
+# apptop's original look: the terminal's own background and text color.
+name = "apptop"
+family = "Default"
+appearance = "dark"
+icon_mode = "app"
+assumed_bg = "#1a1b26"
+
+[colors]
+bg = "terminal"
+fg = "terminal"
+dim = "#7d8291"
+accent = "#7aa2f7"
+border = "#7d8291"
+selection_fg = "#7aa2f7"
+selection_bg = "terminal"
+ok = "#9ece6a"
+warn = "#e0af68"
+danger = "#f7768e"
+header = "#96a0b9"
+ram = "#bb9af7"
+
+[gradients]
+graph = ["#9ece6a", "#e0af68", "#f7768e"]
+size = ["#9ece6a", "#e0af68", "#f7768e"]

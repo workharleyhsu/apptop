@@ -1,0 +1,56 @@
+# Example theme for apptop.
+#
+# Copy this file to ~/.config/apptop/themes/<name>.toml and edit it. The file
+# name (without .toml, in lowercase) is the theme's id: it is what the config
+# file holds and what the picker (key T) saves.
+#
+# A color is one of:
+#   "#rrggbb"    a 24-bit color (terminals with fewer colors get the nearest)
+#   "terminal"   whatever the terminal uses by default (only for roles)
+#   "red", "lightblue", "gray" ...   one of the 16 terminal colors, by name
+#   "214"        an index of the 256-color palette
+
+name = "Example"          # shown in the picker; defaults to the file name
+family = "User"           # group heading in the picker; defaults to "User"
+appearance = "dark"       # dark | light; guessed from bg when omitted
+icon_mode = "app"         # icons: app (each app's own color), tint (nearest
+                          # color of this theme) or mono (the `icon` color)
+# high_contrast = true    # only a label; the built-in themes that set it are
+                          # held to a 7:1 text contrast
+# assumed_bg = "#1a1b26"  # only when bg = "terminal": the background to
+                          # assume when checking contrast
+
+# ---- Required roles -------------------------------------------------------
+[colors]
+bg = "#16181d"            # background of the whole screen
+fg = "#d7dae0"            # normal text
+dim = "#7b8290"           # secondary text, hints, units
+accent = "#6cb6ff"        # shortcuts, titles of dialogs, the active thing
+border = "#3a404b"        # frames and separators
+selection_fg = "#ffffff"  # text of the selected row or app
+selection_bg = "#2d4f7c"  # background of the selected row or app
+ok = "#7ccf8a"            # low load; things that shrank
+warn = "#e5b567"          # medium load; notices that are not errors
+danger = "#f2777a"        # high load; errors; things about to be deleted
+
+# ---- Optional roles -------------------------------------------------------
+# Leave any of these out and it takes the value shown in parentheses.
+header = "#aab2c0"        # section headings (fg)
+connector = "#3a404b"     # not used by apptop (border)
+dir = "#6cb6ff"           # not used by apptop (accent)
+marked = "#c792ea"        # not used by apptop (accent)
+matched = "#e5b567"       # not used by apptop (warn)
+status_fg = "#d7dae0"     # not used by apptop (selection_fg)
+status_bg = "#22262e"     # not used by apptop (selection_bg)
+grew = "#f2777a"          # not used by apptop (danger)
+shrank = "#7ccf8a"        # not used by apptop (ok)
+new = "#6cb6ff"           # not used by apptop (accent)
+ram = "#c792ea"           # memory chart and figures (accent)
+value = "#e5b567"         # not used by apptop (warn)
+icon = "#6cb6ff"          # icons in mono mode, gray icons in tint mode (accent)
+
+# ---- Gradients ------------------------------------------------------------
+# Two or more colors, from low to high. Both default to [ok, warn, danger].
+[gradients]
+graph = ["#7ccf8a", "#e5b567", "#f2777a"]   # reserved for charts
+size = ["#7ccf8a", "#e5b567", "#f2777a"]    # not used by apptop

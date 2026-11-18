@@ -55,13 +55,14 @@
 
 LOOP COMPLETO
 
-## Temas compartidos (2026-11-18)
+## Temas (2026-11-18)
 
-Trabajo posterior al loop, hecho junto con ramas. El plan, las tareas y las decisiones
-están en `../tui-themes/THEMES_PROGRESS.md`; el detalle de lo que cambió en apptop, en
-la sección "Temas compartidos" de `NOTES.md`.
+Trabajo posterior al loop. El detalle está en la sección "Temas" de `NOTES.md` y la guía
+para usuarios en `docs/THEMES.md`.
 
-- [x] Colores tomados del crate `tui-themes`, sin cambio visual con el tema de fábrica.
+- [x] Colores por roles desde `src/themes/`, sin cambio visual con el tema de fábrica.
+- [x] 30 temas incluidos en cinco familias.
 - [x] Selector de temas con `T` y vista previa en vivo.
-- [x] Tema guardado en `[theme] name`; temas del usuario en `~/.config/tui-themes/themes/`.
+- [x] Tema guardado en `[theme] name`; temas del usuario en `~/.config/apptop/themes/`.
 - [x] `icon_mode`: `app`, `tint` o `mono`.
+- [x] Profundidad de color: 24 bits, 256, 16 y sin color (`NO_COLOR`).

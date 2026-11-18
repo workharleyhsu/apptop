@@ -6,7 +6,7 @@ use ratatui::crossterm::event::{
 
 use crate::actions::Signal;
 
-use tui_themes::PickerKey;
+use crate::themes::PickerKey;
 
 use super::state::{Mode, Move, State, View};
 
@@ -620,7 +620,7 @@ mod tests {
         assert_eq!(s.mode, Mode::ThemePicker);
         // Moverse cambia el tema al instante, sin cerrar el selector.
         handle_event(&mut s, &key(KeyCode::Down));
-        assert_eq!(s.theme.id(), "ramas");
+        assert_eq!(s.theme.id(), "catppuccin-mocha");
         assert_eq!(s.mode, Mode::ThemePicker);
         // Esc vuelve al tema que había.
         handle_event(&mut s, &key(KeyCode::Esc));

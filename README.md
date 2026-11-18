@@ -235,7 +235,7 @@ arrows preview each theme on the whole screen, typing filters the list,
 `Enter` keeps the theme and saves it in the configuration file, and `Esc`
 goes back to the one you had.
 
-There are 32 themes in five families: the default (`apptop`, which keeps your
+There are 30 themes in five families: the default (`apptop`, which keeps your
 terminal's own background and text colour), popular ones (Catppuccin,
 Dracula, Everforest, Gruvbox, Kanagawa, Monokai, Nord, One Dark, Rosé Pine,
 Solarized, Tokyo Night), light and pastel, retro and neon (green phosphor,
@@ -251,10 +251,9 @@ configuration overrides it:
 | `tint` | Each one in the theme colour closest to its own |
 | `mono` | All in one colour |
 
-Themes are shared with [ramas](https://github.com/workharleyhsu/ramas)
-through the [tui-themes](https://github.com/workharleyhsu/tui-themes) crate.
-To make your own, drop a TOML file in `~/.config/tui-themes/themes/`: see
-[the theme guide](https://github.com/workharleyhsu/tui-themes/blob/main/docs/THEMES.md). A broken theme file only shows a notice.
+To make your own, drop a TOML file in `~/.config/apptop/themes/`: start from
+[`docs/example-theme.toml`](docs/example-theme.toml) and see
+[the theme guide](docs/THEMES.md). A broken theme file only shows a notice.
 
 ## How it works
 

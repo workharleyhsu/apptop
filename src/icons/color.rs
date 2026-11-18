@@ -3,7 +3,7 @@
 use super::raster::{Rgba, ALPHA_INSIDE};
 
 /// Color usado cuando el icono no tiene ningún color propio (monocromo).
-pub const NEUTRAL: (u8, u8, u8) = tui_themes::color::icon::NEUTRAL;
+pub const NEUTRAL: (u8, u8, u8) = crate::themes::color::icon::NEUTRAL;
 
 /// Luminancia mínima del color devuelto, para que el contorno se lea sobre
 /// una terminal oscura.

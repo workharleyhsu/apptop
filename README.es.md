@@ -293,7 +293,7 @@ valor por defecto; nunca impiden arrancar.
 muestran cada tema en toda la pantalla, escribir filtra la lista, `Enter`
 deja el tema y lo guarda en la configuración, y `Esc` vuelve al que tenías.
 
-Hay 32 temas en cinco familias: el de fábrica (`apptop`, que conserva el
+Hay 30 temas en cinco familias: el de fábrica (`apptop`, que conserva el
 fondo y el color de texto de tu terminal), populares (Catppuccin, Dracula,
 Everforest, Gruvbox, Kanagawa, Monokai, Nord, One Dark, Rosé Pine, Solarized,
 Tokyo Night), claros y pastel, retro y neón (fósforo verde, ámbar, gris,
@@ -309,10 +309,9 @@ configuración lo impone:
 | `tint` | Cada uno con el color del tema más parecido al suyo |
 | `mono` | Todos del mismo color |
 
-Los temas se comparten con [ramas](https://github.com/workharleyhsu/ramas)
-mediante el crate [tui-themes](https://github.com/workharleyhsu/tui-themes).
-Para crear el tuyo, deja un archivo TOML en `~/.config/tui-themes/themes/`:
-mira [la guía de temas](https://github.com/workharleyhsu/tui-themes/blob/main/docs/THEMES.es.md). Un archivo de tema roto solo muestra
+Para crear el tuyo, deja un archivo TOML en `~/.config/apptop/themes/`: parte
+de [`docs/example-theme.toml`](docs/example-theme.toml) y mira
+[la guía de temas](docs/THEMES.es.md). Un archivo de tema roto solo muestra
 un aviso.
 
 ## Cómo funciona

@@ -78,7 +78,7 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
     let palette = state.theme.clone();
     let t = state.lang.t();
     if let Some((picker, _)) = state.picker.as_mut() {
-        let labels = tui_themes::Labels {
+        let labels = crate::themes::Labels {
             title: t.title_theme,
             filter: t.theme_filter,
             placeholder: t.theme_placeholder,
@@ -88,7 +88,7 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
             ascii: false,
         };
         picker.render(
-            tui_themes::Picker::area(body),
+            crate::themes::Picker::area(body),
             buf,
             palette.palette(),
             &labels,
@@ -587,7 +587,7 @@ mod tests {
     }
 
     /// Con el tema por defecto, los colores de cada celda son los de
-    /// siempre: estos snapshots se tomaron antes de pasar a `tui-themes`.
+    /// siempre: estos snapshots se tomaron antes de pasar al sistema de temas.
     #[test]
     fn default_theme_styles_are_unchanged() {
         let mut state = State::new(Theme::default());
@@ -604,10 +604,10 @@ mod tests {
     /// los diálogos.
     #[test]
     fn a_theme_with_background_paints_every_cell() {
-        let base = tui_themes::Catalog::builtin().get_or_plain("ramas-light");
+        let base = crate::themes::Catalog::builtin().get_or_plain("paper");
         let bg = base.bg;
         assert_ne!(bg, ratatui::style::Color::Reset);
-        let theme = Theme::resolve(&base, None, tui_themes::ColorDepth::TrueColor);
+        let theme = Theme::resolve(&base, None, crate::themes::ColorDepth::TrueColor);
         for dialog in [false, true] {
             let mut state = detail_state();
             state.theme = theme.clone();
@@ -632,8 +632,8 @@ mod tests {
         let mut state = State::new(Theme::default());
         state.set_apps(state::tests::sample_apps());
         // Un catálogo fijo: el snapshot no cambia cuando se agregan temas.
-        let all = tui_themes::Catalog::builtin();
-        let mut few = tui_themes::Catalog::default();
+        let all = crate::themes::Catalog::builtin();
+        let mut few = crate::themes::Catalog::default();
         for id in ["apptop", "gruvbox-dark", "high-contrast-dark"] {
             few.push(all.get_or_plain(id));
         }
@@ -641,7 +641,7 @@ mod tests {
         state.open_theme_picker();
         let text = render_to_text(100, 24, &mut state, &mut test_store());
         insta::assert_snapshot!(text);
-        state.theme_picker_key(tui_themes::PickerKey::End);
+        state.theme_picker_key(crate::themes::PickerKey::End);
         let mut store = test_store();
         let mut terminal = Terminal::new(TestBackend::new(100, 24)).unwrap();
         terminal.draw(|f| draw(f, &mut state, &mut store)).unwrap();
@@ -659,8 +659,8 @@ mod tests {
     /// llega a las celdas.
     #[test]
     fn every_theme_renders_every_screen() {
-        use tui_themes::ColorDepth::{Ansi16, Ansi256, NoColor, TrueColor};
-        let catalog = tui_themes::Catalog::builtin();
+        use crate::themes::ColorDepth::{Ansi16, Ansi256, NoColor, TrueColor};
+        let catalog = crate::themes::Catalog::builtin();
         assert!(catalog.themes().len() >= 5);
         let mut store = test_store();
         for base in catalog.themes() {
@@ -690,15 +690,15 @@ mod tests {
     /// solo quedan colores del tema.
     #[test]
     fn mono_icons_use_only_theme_colours() {
-        let base = tui_themes::Catalog::builtin().get_or_plain(theme::DEFAULT_THEME);
-        let own = tui_themes::color::icon::GENERIC_APP;
+        let base = crate::themes::Catalog::builtin().get_or_plain(theme::DEFAULT_THEME);
+        let own = crate::themes::color::icon::GENERIC_APP;
         let own = ratatui::style::Color::Rgb(own.0, own.1, own.2);
         let colours = |mode| {
             let mut state = State::new(Theme::resolve_with(
                 &base,
                 None,
                 Some(mode),
-                tui_themes::ColorDepth::TrueColor,
+                crate::themes::ColorDepth::TrueColor,
             ));
             state.set_apps(state::tests::sample_apps());
             let mut store = test_store();
@@ -707,8 +707,8 @@ mod tests {
             let buffer = terminal.backend().buffer();
             buffer.content.iter().map(|c| c.fg).collect::<Vec<_>>()
         };
-        assert!(colours(tui_themes::IconMode::App).contains(&own));
-        let mono = colours(tui_themes::IconMode::Mono);
+        assert!(colours(crate::themes::IconMode::App).contains(&own));
+        let mono = colours(crate::themes::IconMode::Mono);
         assert!(!mono.contains(&own));
         assert!(mono.contains(&base.icon));
     }

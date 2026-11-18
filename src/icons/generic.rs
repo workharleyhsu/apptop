@@ -19,8 +19,8 @@ pub enum GenericKind {
 impl GenericKind {
     pub fn color(self) -> (u8, u8, u8) {
         match self {
-            GenericKind::Service => tui_themes::color::icon::GENERIC_SERVICE,
-            GenericKind::App => tui_themes::color::icon::GENERIC_APP,
+            GenericKind::Service => crate::themes::color::icon::GENERIC_SERVICE,
+            GenericKind::App => crate::themes::color::icon::GENERIC_APP,
         }
     }
 

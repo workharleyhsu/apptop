@@ -428,11 +428,14 @@ De paso: `apptop --list | head` terminaba con un panic por tubería rota. Ahora
   Falta probar el camino con la contraseña correcta.
 - README: capturas reales en PNG (`docs/screenshots/`, fuera del paquete del crate).
 
-## Temas compartidos (`tui-themes`), 2026-11-18
+## Temas, 2026-11-18
 
-- Los colores ya no se definen en apptop: `src/ui/theme.rs` es un envoltorio fino sobre el
-  crate `tui-themes` (repo hermano, `../tui-themes`). El plan y el avance de este trabajo
-  están en `../tui-themes/THEMES_PROGRESS.md`.
+- **Dónde vive:** `src/themes/` (modelo, catálogo, profundidad de color, selector y
+  guardado), los temas en `themes/<familia>/<id>.toml` y la guía en `docs/THEMES.md` y
+  `docs/THEMES.es.md`. Es código propio de apptop: no hay crate ni repo aparte. ramas
+  tiene su propia copia, independiente; un arreglo acá no llega solo allá.
+- **Regla:** ningún color se escribe fuera de `src/themes/` y de los TOML. `src/ui/theme.rs`
+  es un envoltorio fino que traduce roles a `Style`.
 - El tema de fábrica es `apptop`: mismos colores de siempre, con texto y fondo de la
   terminal. La regla "nunca se pinta fondo" ahora vale para ese tema; otros temas sí
   pintan el suyo, y `ui::draw` lo aplica a todo el cuadro antes de dibujar.
@@ -445,22 +448,30 @@ De paso: `apptop --list | head` terminaba con un panic por tubería rota. Ahora
 - `Theme` dejó de ser `Copy` (lleva un `Arc`): se clona, y es barato.
 - Excepción consciente: los colores de los iconos sin color propio (`NEUTRAL`, genéricos
   de app y servicio) son datos del análisis de imagen; sus valores viven en
-  `tui_themes::color::icon`.
-- Selector de temas con `T` (grilla y detalle): `Mode::ThemePicker` + `State::picker`. El
-  panel va a la derecha para que el resto de la pantalla muestre el tema que se prueba.
-  Flechas = vista previa al instante, letras = filtro, Enter = dejarlo, Esc = volver al
-  anterior. El widget y su lógica viven en `tui_themes::picker`; apptop solo traduce las
-  teclas y pone los textos (`i18n.rs`). El atajo `T` aparece en la barra con prioridad 1:
-  en 80 columnas no entra y los snapshots viejos no cambian.
-- El tema elegido se guarda en `[theme] name` de la configuración con `tui_themes::save_theme`
-  (`toml_edit`: no toca comentarios ni otras claves). Lo hace el bucle principal a partir de
-  `State::theme_to_save`; si no se puede escribir, se avisa en la barra y el tema queda para
-  esa sesión. Se guarda en el archivo de `--config`, o en el de la ruta por defecto.
-- Temas del usuario: `~/.config/tui-themes/themes/*.toml` (`Catalog::load`). Un archivo roto
-  se informa por stderr, en un aviso al arrancar y dentro del selector; nunca impide arrancar.
-  Un `theme.name` desconocido cae al tema de fábrica con un aviso.
-- `icon_mode` (por tema, o `theme.icon_mode` en la configuración): `app` usa el color
-  dominante real de cada icono, `tint` el color de la paleta de tono más cercano y `mono`
-  un solo color (rol `icon`). La elección vive en `tui_themes::Theme::icon_color`. En `app`,
-  sobre un fondo que pinta el tema, el color se acerca al del texto hasta llegar a 3:1; con
-  el fondo de la terminal no se toca (el tema de fábrica no cambia).
+  `themes::color::icon`.
+- **Selector con `T`** (grilla y detalle): `Mode::ThemePicker` + `State::picker`. El panel
+  va a la derecha para que el resto de la pantalla muestre el tema que se prueba. Flechas =
+  vista previa al instante, letras = filtro, Enter = dejarlo, Esc = volver al anterior. El
+  widget está en `themes::picker`; `ui/input.rs` traduce las teclas y `i18n.rs` pone los
+  textos. El atajo `T` aparece en la barra con prioridad 1: en 80 columnas no entra y los
+  snapshots viejos no cambian.
+- **Guardado:** el tema elegido va a `[theme] name` de la configuración con
+  `themes::save_theme` (`toml_edit`: no toca comentarios ni otras claves). Lo hace el bucle
+  principal a partir de `State::theme_to_save`; si no se puede escribir, se avisa en la
+  barra y el tema queda para esa sesión.
+- **Temas del usuario:** `~/.config/apptop/themes/*.toml` (`Catalog::load`). Un archivo
+  roto se informa por stderr, en un aviso al arrancar y dentro del selector; nunca impide
+  arrancar. Un `theme.name` desconocido cae al tema de fábrica con un aviso.
+- **`icon_mode`** (por tema, o `theme.icon_mode` en la configuración): `app` usa el color
+  dominante real de cada icono, `tint` el color del tema de tono más cercano y `mono` un
+  solo color (rol `icon`). En `app`, sobre un fondo que pinta el tema, el color se acerca
+  al del texto hasta llegar a 3:1; con el fondo de la terminal no se toca.
+- **Catálogo:** 30 temas. Default (1), Popular (16), Light & pastel (4), Retro & neon (5),
+  Accessible (4). Para agregar uno: archivo en `themes/<familia>/`, entrada en la lista
+  `BUILTIN` de `src/themes/catalog.rs` y fila en las dos guías (los tests avisan si falta).
+- **Tests de los temas:** todos los roles definidos, contraste (texto 4.5:1, 7:1 en alto
+  contraste, roles de color 3:1), degradación limpia a 256 y 16 colores, simulación de
+  daltonismo en los Okabe-Ito, y `every_theme_renders_every_screen` con cada tema en las
+  cuatro profundidades.
+- **Historia:** se armó primero como crate compartido con ramas (`tui-themes`). Harley
+  prefirió que cada app sea independiente y el código se copió dentro de cada una.

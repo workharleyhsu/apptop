@@ -17,7 +17,7 @@ use super::graph::{History, Point};
 use super::grid::GridLayout;
 use super::theme::{Theme, ThemeSet};
 use super::tree::{tree_rows, TreeView};
-use tui_themes::{Picker, PickerEvent, PickerKey};
+use crate::themes::{Picker, PickerEvent, PickerKey};
 
 /// Pantalla que se está mostrando.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

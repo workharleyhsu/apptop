@@ -1,13 +1,13 @@
-//! Colores y estilos de la interfaz: envoltorio fino sobre `tui-themes`.
+//! Colores y estilos de la interfaz: envoltorio fino sobre `crate::themes`.
 //!
 //! Ningún color se define acá. Los roles (texto, acento, aviso, peligro…)
-//! salen del tema elegido, y `tui-themes` los adapta a lo que la terminal
+//! salen del tema elegido, y `crate::themes` los adapta a lo que la terminal
 //! puede mostrar.
 
 use std::sync::Arc;
 
+use crate::themes::{Catalog, ColorDepth, IconMode, Theme as Palette};
 use ratatui::style::{Color, Style};
-use tui_themes::{Catalog, ColorDepth, IconMode, Theme as Palette};
 
 /// Tema de fábrica: el aspecto de siempre, sin color de fondo propio.
 pub const DEFAULT_THEME: &str = "apptop";

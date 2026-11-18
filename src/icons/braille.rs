@@ -1,6 +1,6 @@
 //! Icono convertido a caracteres braille (2×4 puntos por celda).
 
-use tui_themes::color::to_ansi256;
+use crate::themes::color::to_ansi256;
 
 /// Bit de cada punto dentro de una celda braille, indexado por `[fila][columna]`.
 const DOT_BITS: [[u8; 2]; 4] = [[0x01, 0x08], [0x02, 0x10], [0x04, 0x20], [0x40, 0x80]];

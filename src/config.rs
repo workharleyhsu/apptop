@@ -21,7 +21,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use tui_themes::IconMode;
+use crate::themes::IconMode;
 
 use toml::{Table, Value};
 

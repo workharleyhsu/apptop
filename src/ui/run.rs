@@ -6,13 +6,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use crate::themes::{Catalog, ColorDepth};
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use ratatui::crossterm::cursor::{Hide, Show};
 use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture};
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
 use ratatui::DefaultTerminal;
-use tui_themes::{Catalog, ColorDepth};
 
 use crate::actions::{ancestry, elevate, send_signal, set_nice, ElevateOutcome, Elevated};
 use crate::apps::Sampler;
@@ -57,7 +57,7 @@ impl Default for RunOptions {
 
 impl RunOptions {
     /// Opciones a partir de la configuración, con los temas embebidos y
-    /// los del usuario (`~/.config/tui-themes/themes`).
+    /// los del usuario (`~/.config/apptop/themes`).
     pub fn from_config(config: &Config) -> Self {
         Self::from_config_with(config, Catalog::load())
     }
@@ -65,7 +65,7 @@ impl RunOptions {
     /// Igual que [`RunOptions::from_config`], con el catálogo dado.
     pub fn from_config_with(config: &Config, catalog: Catalog) -> Self {
         // Forzar una profundidad en la configuración ignora el entorno
-        // (también `NO_COLOR`); en `auto` decide `tui-themes`.
+        // (también `NO_COLOR`); en `auto` se detecta del entorno.
         let depth = match config.color {
             ColorMode::Auto => ColorDepth::detect(),
             ColorMode::Truecolor => ColorDepth::TrueColor,
@@ -286,7 +286,7 @@ fn event_loop(terminal: &mut DefaultTerminal, options: &RunOptions) -> io::Resul
             // El tema confirmado en el selector se guarda en la configuración.
             if let Some(id) = state.theme_to_save.take() {
                 if let Some(path) = &options.config_path {
-                    if let Err(error) = tui_themes::save_theme(path, &["theme", "name"], &id) {
+                    if let Err(error) = crate::themes::save_theme(path, &["theme", "name"], &id) {
                         state.notify(error, true);
                     }
                 }
