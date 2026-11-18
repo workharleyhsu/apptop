@@ -6,6 +6,8 @@ use ratatui::crossterm::event::{
 
 use crate::actions::Signal;
 
+use tui_themes::PickerKey;
+
 use super::state::{Mode, Move, State, View};
 
 /// Qué debe hacer el bucle principal después de un evento.
@@ -73,6 +75,29 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
             }
             return Outcome::Redraw;
         }
+        Mode::ThemePicker => {
+            let picker_key = match key.code {
+                KeyCode::Up => PickerKey::Up,
+                KeyCode::Down => PickerKey::Down,
+                KeyCode::PageUp => PickerKey::PageUp,
+                KeyCode::PageDown => PickerKey::PageDown,
+                KeyCode::Home => PickerKey::Home,
+                KeyCode::End => PickerKey::End,
+                KeyCode::Enter => PickerKey::Enter,
+                KeyCode::Esc => PickerKey::Esc,
+                KeyCode::Backspace => PickerKey::Backspace,
+                KeyCode::Char(c)
+                    if !key
+                        .modifiers
+                        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+                {
+                    PickerKey::Char(c)
+                }
+                _ => return Outcome::Ignored,
+            };
+            state.theme_picker_key(picker_key);
+            return Outcome::Redraw;
+        }
         Mode::Normal => {}
     }
     // Acciones sobre la app seleccionada (o el proceso elegido en el detalle).
@@ -107,6 +132,11 @@ pub fn handle_key(state: &mut State, key: &KeyEvent) -> Outcome {
         }
         KeyCode::Char('-') => {
             state.adjust_refresh(true);
+            return Outcome::Redraw;
+        }
+        // El selector de temas también se abre desde cualquier vista.
+        KeyCode::Char('T') => {
+            state.open_theme_picker();
             return Outcome::Redraw;
         }
         _ => {}
@@ -264,7 +294,8 @@ pub fn handle_mouse(state: &mut State, mouse: &MouseEvent) -> Outcome {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ui::state::tests::laid_out;
+    use crate::ui::state::tests::{laid_out, sample_apps};
+    use crate::ui::Theme;
 
     fn key(code: KeyCode) -> Event {
         Event::Key(KeyEvent::new(code, KeyModifiers::NONE))
@@ -578,5 +609,47 @@ mod tests {
             handle_event(&mut s, &Event::Resize(100, 40)),
             Outcome::Redraw
         );
+    }
+
+    #[test]
+    fn shift_t_opens_the_theme_picker_and_previews_live() {
+        let mut s = State::new(Theme::default());
+        s.set_apps(sample_apps());
+        assert_eq!(s.theme.id(), "apptop");
+        handle_event(&mut s, &key(KeyCode::Char('T')));
+        assert_eq!(s.mode, Mode::ThemePicker);
+        // Moverse cambia el tema al instante, sin cerrar el selector.
+        handle_event(&mut s, &key(KeyCode::Down));
+        assert_eq!(s.theme.id(), "ramas");
+        assert_eq!(s.mode, Mode::ThemePicker);
+        // Esc vuelve al tema que había.
+        handle_event(&mut s, &key(KeyCode::Esc));
+        assert_eq!(s.mode, Mode::Normal);
+        assert_eq!(s.theme.id(), "apptop");
+        assert!(s.picker.is_none());
+    }
+
+    #[test]
+    fn enter_keeps_the_chosen_theme_and_letters_only_filter() {
+        let mut s = State::new(Theme::default());
+        s.set_apps(sample_apps());
+        handle_event(&mut s, &key(KeyCode::Char('T')));
+        // Dentro del selector las letras filtran: `q` no cierra apptop.
+        for c in "gruvq".chars() {
+            assert_eq!(
+                handle_event(&mut s, &key(KeyCode::Char(c))),
+                Outcome::Redraw
+            );
+        }
+        handle_event(&mut s, &key(KeyCode::Backspace));
+        assert_eq!(s.theme.id(), "gruvbox-dark");
+        handle_event(&mut s, &key(KeyCode::Enter));
+        assert_eq!(s.mode, Mode::Normal);
+        assert_eq!(s.theme.id(), "gruvbox-dark");
+        assert_eq!(s.current_message().unwrap().text, "Theme: Gruvbox Dark");
+        // También se abre desde el detalle.
+        s.view = View::Detail;
+        handle_event(&mut s, &key(KeyCode::Char('T')));
+        assert_eq!(s.mode, Mode::ThemePicker);
     }
 }

@@ -145,6 +145,13 @@ pub fn hints(state: &State) -> Vec<Hint> {
                 Hint::new("Esc", t.hint_cancel, 9),
             ]
         }
+        Mode::ThemePicker => {
+            return vec![
+                Hint::new("↑/↓", t.hint_choose, 5),
+                Hint::new("Enter", t.hint_apply, 9),
+                Hint::new("Esc", t.hint_cancel, 9),
+            ]
+        }
         Mode::Nice(_) => {
             return vec![
                 Hint::new("←/→", t.hint_change, 5),
@@ -175,6 +182,7 @@ pub fn hints(state: &State) -> Vec<Hint> {
                 Hint::new("n", t.hint_priority, 3),
                 Hint::new("S", t.hint_signal, 3),
                 Hint::new("+/-", t.hint_refresh, 2),
+                Hint::new("T", t.hint_theme, 1),
             ];
             if !state.filter.is_empty() {
                 hints.push(Hint::new("Esc", t.hint_clear_filter, 8));
@@ -189,6 +197,7 @@ pub fn hints(state: &State) -> Vec<Hint> {
             Hint::new("p", pause, 4),
             Hint::new("n", t.hint_priority, 4),
             Hint::new("S", t.hint_signal, 4),
+            Hint::new("T", t.hint_theme, 1),
             Hint::new("Esc", t.hint_back, 8),
             Hint::new("q", t.hint_quit, 9),
         ],
@@ -272,7 +281,10 @@ mod tests {
         assert_eq!(keys(&s)[0], "Enter");
         s.mode = Mode::Normal;
         s.view = View::Detail;
-        assert_eq!(keys(&s), vec!["↑↓/jk", "x", "K", "p", "n", "S", "Esc", "q"]);
+        assert_eq!(
+            keys(&s),
+            vec!["↑↓/jk", "x", "K", "p", "n", "S", "T", "Esc", "q"]
+        );
     }
 
     #[test]

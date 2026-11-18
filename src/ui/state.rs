@@ -15,8 +15,9 @@ use crate::icons::GRID_ICON;
 
 use super::graph::{History, Point};
 use super::grid::GridLayout;
-use super::theme::Theme;
+use super::theme::{Theme, ThemeSet};
 use super::tree::{tree_rows, TreeView};
+use tui_themes::{Picker, PickerEvent, PickerKey};
 
 /// Pantalla que se está mostrando.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -128,6 +129,8 @@ pub enum Mode {
     SignalMenu(usize),
     /// Ofreciendo reintentar con sudo una acción rechazada por permisos.
     Elevate(ElevateRequest),
+    /// Eligiendo un tema; el selector está en `State::picker`.
+    ThemePicker,
 }
 
 /// Un cambio de prioridad en preparación o listo para aplicarse.
@@ -248,6 +251,10 @@ pub struct State {
     /// Tamaño de los iconos de la grilla, en celdas.
     pub icon_size: (u16, u16),
     pub theme: Theme,
+    /// Temas disponibles para el selector.
+    pub themes: ThemeSet,
+    /// Selector de temas abierto, con el tema que había al abrirlo.
+    pub picker: Option<(Picker, Theme)>,
     /// Disposición del último cuadro dibujado (para el mouse y el scroll).
     pub layout: GridLayout,
 }
@@ -286,6 +293,8 @@ impl State {
             scroll: 0,
             icon_size: GRID_ICON,
             theme,
+            themes: ThemeSet::default(),
+            picker: None,
             layout: GridLayout::default(),
         }
     }
@@ -726,6 +735,48 @@ impl State {
             is_error,
             until: self.clock + MESSAGE_SECS,
         });
+    }
+
+    /// Abre el selector de temas sobre el tema actual.
+    pub fn open_theme_picker(&mut self) {
+        let picker = Picker::new(&self.themes.catalog, self.theme.id());
+        self.picker = Some((picker, self.theme.clone()));
+        self.mode = Mode::ThemePicker;
+    }
+
+    /// Una tecla dentro del selector: moverse muestra el tema al instante,
+    /// Enter lo deja puesto y Esc vuelve al que había.
+    pub fn theme_picker_key(&mut self, key: PickerKey) {
+        let Some((picker, before)) = self.picker.as_mut() else {
+            self.mode = Mode::Normal;
+            return;
+        };
+        let (event, before) = (picker.on_key(key), before.clone());
+        match event {
+            PickerEvent::None => {}
+            PickerEvent::Preview(id) => self.show_theme(&id),
+            PickerEvent::Confirm(id) => {
+                self.show_theme(&id);
+                self.close_theme_picker();
+                let text = format!("{}: {}", self.lang.t().title_theme, self.theme.name());
+                self.notify(text, false);
+            }
+            PickerEvent::Cancel(_) => {
+                self.theme = before;
+                self.close_theme_picker();
+            }
+        }
+    }
+
+    fn show_theme(&mut self, id: &str) {
+        if let Some(theme) = self.themes.theme(id) {
+            self.theme = theme;
+        }
+    }
+
+    fn close_theme_picker(&mut self) {
+        self.picker = None;
+        self.mode = Mode::Normal;
     }
 
     /// Aviso vigente, si lo hay.

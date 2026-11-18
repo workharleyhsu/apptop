@@ -71,7 +71,28 @@ pub fn draw(frame: &mut Frame, state: &mut State, store: &mut IconStore) {
         Mode::Nice(request) => dialog::draw_nice(buf, body, state, request),
         Mode::SignalMenu(cursor) => dialog::draw_signal_menu(buf, body, state, *cursor),
         Mode::Elevate(request) => dialog::draw_elevate(buf, body, state, request),
-        Mode::Normal | Mode::Filter => {}
+        Mode::ThemePicker | Mode::Normal | Mode::Filter => {}
+    }
+    // El selector va a la derecha, así el resto de la pantalla muestra el
+    // tema que se está probando.
+    let palette = state.theme.clone();
+    let t = state.lang.t();
+    if let Some((picker, _)) = state.picker.as_mut() {
+        let labels = tui_themes::Labels {
+            title: t.title_theme,
+            filter: t.theme_filter,
+            placeholder: t.theme_placeholder,
+            hint: t.theme_hint,
+            no_match: t.theme_no_match,
+            invalid: t.theme_invalid,
+            ascii: false,
+        };
+        picker.render(
+            tui_themes::Picker::area(body),
+            buf,
+            palette.palette(),
+            &labels,
+        );
     }
 }
 
@@ -602,6 +623,28 @@ mod tests {
             assert!(buffer.content.iter().all(|c| allowed.contains(&c.bg)));
             assert!(buffer.content.iter().any(|c| c.bg == bg));
         }
+    }
+
+    /// El selector ocupa la derecha y deja la grilla a la vista; el resto
+    /// del cuadro ya usa el tema que se está probando.
+    #[test]
+    fn theme_picker_snapshot_and_live_preview() {
+        let mut state = State::new(Theme::default());
+        state.set_apps(state::tests::sample_apps());
+        state.open_theme_picker();
+        let text = render_to_text(100, 24, &mut state, &mut test_store());
+        insta::assert_snapshot!(text);
+        state.theme_picker_key(tui_themes::PickerKey::End);
+        let mut store = test_store();
+        let mut terminal = Terminal::new(TestBackend::new(100, 24)).unwrap();
+        terminal.draw(|f| draw(f, &mut state, &mut store)).unwrap();
+        let bg = state.theme.palette().bg;
+        assert_ne!(bg, ratatui::style::Color::Reset);
+        assert_eq!(terminal.backend().buffer()[(0, 5)].bg, bg);
+        // En español.
+        state.lang = crate::i18n::Lang::Es;
+        let text = render_to_text(100, 24, &mut state, &mut test_store());
+        assert!(text.contains("Tema") && text.contains("Enter guardar"));
     }
 
     #[test]

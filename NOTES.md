@@ -446,3 +446,9 @@ De paso: `apptop --list | head` terminaba con un panic por tubería rota. Ahora
 - Excepción consciente: los colores de los iconos sin color propio (`NEUTRAL`, genéricos
   de app y servicio) son datos del análisis de imagen; sus valores viven en
   `tui_themes::color::icon`.
+- Selector de temas con `T` (grilla y detalle): `Mode::ThemePicker` + `State::picker`. El
+  panel va a la derecha para que el resto de la pantalla muestre el tema que se prueba.
+  Flechas = vista previa al instante, letras = filtro, Enter = dejarlo, Esc = volver al
+  anterior. El widget y su lógica viven en `tui_themes::picker`; apptop solo traduce las
+  teclas y pone los textos (`i18n.rs`). El atajo `T` aparece en la barra con prioridad 1:
+  en 80 columnas no entra y los snapshots viejos no cambian.

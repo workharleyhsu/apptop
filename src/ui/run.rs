@@ -3,6 +3,7 @@
 use std::io::{self, stdout};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
@@ -22,7 +23,7 @@ use crate::icons::{IconLocator, IconStore};
 
 use super::input::{handle_event, Outcome};
 use super::state::{clamp_refresh, SortKey, State};
-use super::theme::{Theme, DEFAULT_THEME};
+use super::theme::{Theme, ThemeSet, DEFAULT_THEME};
 
 /// Opciones de la sesión interactiva (configuración + línea de comandos).
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +34,8 @@ pub struct RunOptions {
     /// Tamaño de los iconos de la grilla, en celdas.
     pub icon_size: (u16, u16),
     pub theme: Theme,
+    /// Catálogo y profundidad de color, para el selector de temas.
+    pub themes: ThemeSet,
     /// Tema de iconos; `None` = detectar.
     pub icon_theme: Option<String>,
     /// Idioma de la interfaz.
@@ -57,12 +60,20 @@ impl RunOptions {
             ColorMode::Palette256 => ColorDepth::Ansi256,
             ColorMode::Palette16 => ColorDepth::Ansi16,
         };
-        let base = Catalog::builtin().get_or_plain(DEFAULT_THEME);
+        let themes = ThemeSet {
+            catalog: Arc::new(Catalog::builtin()),
+            depth,
+            accent: config.accent,
+        };
+        let theme = themes
+            .theme(DEFAULT_THEME)
+            .unwrap_or_else(|| Theme::builtin(depth));
         Self {
             refresh: config.refresh,
             sort: config.sort,
             icon_size: config.icon_size.cells(),
-            theme: Theme::resolve(&base, config.accent, depth),
+            theme,
+            themes,
             icon_theme: config.icon_theme.clone(),
             lang: config.language,
             panic_test: false,
@@ -76,6 +87,7 @@ impl RunOptions {
         state.sort = self.sort;
         state.icon_size = self.icon_size;
         state.lang = self.lang;
+        state.themes = self.themes.clone();
         state
     }
 

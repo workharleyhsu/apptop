@@ -19,6 +19,34 @@ pub struct Theme {
     palette: Arc<Palette>,
 }
 
+/// Los temas disponibles y cómo adaptarlos a esta terminal.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ThemeSet {
+    pub catalog: Arc<Catalog>,
+    pub depth: ColorDepth,
+    /// Acento pedido en la configuración (`theme.accent`), si lo hay.
+    pub accent: Option<(u8, u8, u8)>,
+}
+
+impl ThemeSet {
+    /// El tema con ese id, listo para dibujar; `None` si no existe.
+    pub fn theme(&self, id: &str) -> Option<Theme> {
+        self.catalog
+            .get(id)
+            .map(|base| Theme::resolve(base, self.accent, self.depth))
+    }
+}
+
+impl Default for ThemeSet {
+    fn default() -> Self {
+        Self {
+            catalog: Arc::new(Catalog::builtin()),
+            depth: ColorDepth::TrueColor,
+            accent: None,
+        }
+    }
+}
+
 impl Theme {
     /// Adapta un tema del catálogo (en 24 bits) a la terminal. `accent`
     /// reemplaza el color de acento del tema (opción `theme.accent`).
@@ -39,6 +67,16 @@ impl Theme {
     /// El tema de fábrica a una profundidad dada.
     pub fn builtin(depth: ColorDepth) -> Self {
         Self::resolve(&Catalog::builtin().get_or_plain(DEFAULT_THEME), None, depth)
+    }
+
+    /// Identificador del tema (el nombre de su archivo).
+    pub fn id(&self) -> &str {
+        &self.palette.id
+    }
+
+    /// Nombre para mostrar.
+    pub fn name(&self) -> &str {
+        &self.palette.name
     }
 
     /// Los roles del tema, para lo que no tiene un método propio.
