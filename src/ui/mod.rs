@@ -631,6 +631,13 @@ mod tests {
     fn theme_picker_snapshot_and_live_preview() {
         let mut state = State::new(Theme::default());
         state.set_apps(state::tests::sample_apps());
+        // Un catálogo fijo: el snapshot no cambia cuando se agregan temas.
+        let all = tui_themes::Catalog::builtin();
+        let mut few = tui_themes::Catalog::default();
+        for id in ["apptop", "gruvbox-dark", "high-contrast-dark"] {
+            few.push(all.get_or_plain(id));
+        }
+        state.themes.catalog = std::sync::Arc::new(few);
         state.open_theme_picker();
         let text = render_to_text(100, 24, &mut state, &mut test_store());
         insta::assert_snapshot!(text);
@@ -645,6 +652,38 @@ mod tests {
         state.lang = crate::i18n::Lang::Es;
         let text = render_to_text(100, 24, &mut state, &mut test_store());
         assert!(text.contains("Tema") && text.contains("Enter guardar"));
+    }
+
+    /// Todos los temas del catálogo dibujan la grilla, el detalle y un
+    /// diálogo en todas las profundidades de color, y el fondo del tema
+    /// llega a las celdas.
+    #[test]
+    fn every_theme_renders_every_screen() {
+        use tui_themes::ColorDepth::{Ansi16, Ansi256, NoColor, TrueColor};
+        let catalog = tui_themes::Catalog::builtin();
+        assert!(catalog.themes().len() >= 5);
+        let mut store = test_store();
+        for base in catalog.themes() {
+            for depth in [TrueColor, Ansi256, Ansi16, NoColor] {
+                let theme = Theme::resolve(base, None, depth);
+                let mut grid = State::new(theme.clone());
+                grid.set_apps(state::tests::sample_apps());
+                let text = render_to_text(80, 24, &mut grid, &mut store);
+                assert!(text.contains("Firefox"), "{} {depth:?}", base.id);
+                let mut detail = detail_state();
+                detail.theme = theme.clone();
+                detail.mode = Mode::SignalMenu(0);
+                let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+                terminal.draw(|f| draw(f, &mut detail, &mut store)).unwrap();
+                let corner = &terminal.backend().buffer()[(79, 12)];
+                let expected = if depth == NoColor {
+                    ratatui::style::Color::Reset
+                } else {
+                    theme.palette().bg
+                };
+                assert_eq!(corner.bg, expected, "{} {depth:?}", base.id);
+            }
+        }
     }
 
     /// En modo `mono` ningún icono conserva su color propio: en la grilla
